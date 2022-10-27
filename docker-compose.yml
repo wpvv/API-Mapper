@@ -1,0 +1,65 @@
+version: '3.1'
+
+services:
+  frontend:
+    build:
+      context: "./frontend"
+      dockerfile: "Dockerfile.frontend"
+    container_name: frontend
+    networks:
+      - APIMapping
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    
+  backend:
+    build:
+      context: "./backend"
+      dockerfile: "Dockerfile.backend"
+    restart: always
+    container_name: backend
+    networks:
+      - APIMapping
+    volumes:
+      - ./backend:/app
+    command: >
+     sh -c "flask run --host=0.0.0.0 --no-debugger"
+    ports:
+      - 5000:5000
+    depends_on:
+      - mongodb
+      - codegen
+
+  mongodb:
+    image: mongo:latest
+    container_name: database
+    networks:
+      - APIMapping
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+    command:
+      - --logpath
+      - /var/log/mongodb/mongod.log
+
+  codegen:
+    image: openapitools/openapi-generator-online:latest
+    container_name: codegenerator
+    networks:
+      - APIMapping
+    ports:
+      - 8080:8080
+
+volumes:
+  mongodb_data_container:
+
+networks:
+  APIMapping:
+    driver: bridge
