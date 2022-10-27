@@ -1,0 +1,143 @@
+.modal-notification {
+  max-width: 100%;
+}
+
+.cds--tab-content {
+  padding: 0;
+}
+
+.cds--modal-content {
+  margin-bottom: 1rem;
+}
+
+.cds--tooltip--shown {
+  z-index: 9000 !important;
+}
+.cds--modal-content:focus{
+  outline: none;
+}
+
+.progress-padding {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.cds--text-input--password__visibility__toggle {
+  margin-top: -8px !important;
+}
+
+.api-formgroup {
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: row;
+
+  .cds--form-item {
+    display: block;
+    padding-right: 1em;
+  }
+
+  .cds--btn {
+    vertical-align: bottom !important;
+    margin-top: calc(1.5em);
+  }
+
+  .margin-add-button {
+    margin-right: 3em;
+  }
+
+  .button-spacing {
+    margin-right: 0.15em;
+  }
+
+  .textinput-padding {
+    padding-bottom: 3px;
+  }
+}
+
+.api-formgroup-endpoint {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 0.5rem;
+
+  .cds--form-item .bx--label {
+    padding-bottom: 3px;
+  }
+
+  .cds--btn {
+    vertical-align: bottom !important;
+    margin-top: calc(2em - 4px);
+    min-height: 0!important;
+    padding: calc(0.875rem - 5px) 63px calc(0.875rem - 3px) 15px;
+  }
+
+  .margin-add-button {
+    margin-right: 3em;
+  }
+  .cds--text-input-wrapper {
+    margin-right: 0.15em;
+  }
+
+}
+
+.api-formgroup-parameter {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 0.5rem;
+
+  .cds--btn {
+    vertical-align: bottom !important;
+    margin-top: calc(2em - 4px);
+    min-height: 0!important;
+    padding-bottom: calc(-2px + 0.875rem);
+  }
+
+  .button-spacing {
+    margin-right: 0.15em;
+  }
+
+  .cds--text-input-wrapper {
+    margin-right: 0.15em;
+  }
+}
+
+.small-input {
+  max-width: 90%;
+}
+
+.enable-scrollbar {
+  max-height: 60vh;
+}
+
+.crawl-button-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.swagger-preview {
+//  background-color: #ffffff;
+  width: 100%;
+  margin: 1rem;
+}
+
+.crawl-tile-title {
+  padding-bottom: 1rem;
+}
+
+.crawl-tile-padding {
+  padding-bottom: 3.7rem;
+}
+
+.no-bottom-margin {
+  margin-bottom: 0;
+}
+
+.ace-ambiance .ace_scroller{
+  box-shadow: none!important;
+  background-color: var(--cds-field-02, #ffffff);
+}
+.ace-ambiance .ace_gutter{
+  background-color: var(--cds-field-02, #ffffff);
+
+}

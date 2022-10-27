@@ -1,0 +1,89 @@
+.main-container {
+  width: 100%;
+  height: 94vh;
+
+  .ant-layout, .ant-layout-content {
+    height: 100%;
+  }
+
+  .menu {
+    height: 100%;
+    width: 200px;
+    overflow-y: auto;
+  }
+
+  .header.ant-layout-header {
+    background-color: #212528;
+    color: #fff;
+    height: 50px;
+    line-height: 50px;
+  }
+
+  section.ant-layout {
+    background: #2E2E2E;
+  }
+
+  .butterfly-table-building {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.view-port-background {
+  background-color: rgba(216, 216, 216, 0.05);
+}
+
+.empty-content {
+  height: 100px;
+  padding-top: 20px;
+  text-align: center;
+
+  .desc {
+    color: #474747;
+  }
+
+  .add-field {
+    color: #0070cc;
+    cursor: pointer;
+  }
+}
+
+.visual-skeleton {
+  height: 90%;
+  width: 100%;
+}
+
+.hide-close-button {
+  visibility: hidden;
+}
+
+.modal-notification {
+  max-width: 100%;
+  margin-top: 3rem;
+}
+
+.bx--snippet-container {
+  width: 100%;
+}
+
+.button-panel {
+  z-index: 1000;
+  bottom: 10px;
+  right: 15px;
+  position: absolute;
+}
+
+.cds--structured-list-td {
+  vertical-align: middle;
+}
+
+.variable-title {
+  margin-top: 1rem;
+}
+
+.button-loading{
+  .cds--inline-loading__text{
+    color: var(--cds-text-on-color, #ffffff);
+  }
+}
+

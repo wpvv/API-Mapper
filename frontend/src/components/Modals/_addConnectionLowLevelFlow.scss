@@ -1,0 +1,34 @@
+.cds--modal-container--lg {
+  width: 90% !important;
+}
+
+.low-level-modal {
+  max-height: 80vh;
+  max-width: none;
+
+  .cds--css-grid {
+    max-width: none;
+  }
+
+  .cds--data-table-content {
+    overflow-x: initial;
+  }
+}
+
+.low-level-container {
+  margin-top: 1vh;
+  height: 72vh;
+  overflow-y: auto;
+}
+
+.low-level-skeleton {
+  height: 100%;
+  width: 100%;
+}
+.low-level-button-panel {
+  background-color: var(--cds-background, #fff);
+  z-index: 1000;
+  bottom: 10px;
+  right: 15px;
+  position: absolute;
+}

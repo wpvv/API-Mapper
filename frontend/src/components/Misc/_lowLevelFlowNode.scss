@@ -1,0 +1,49 @@
+.target-node {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-align: center;
+  background-color: var(--cds-layer-02);
+  width: 150px;
+  z-index: 2;
+
+  .target-node-label {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+  }
+
+  .target-node-label-script {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+  }
+
+  .target-node-type {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+  }
+
+  .target-node-required {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+    color: var(--cds-text-error);
+    border-color: var(--cds-text-primary);
+    border-top-style: solid;
+    border-top-width: 1px;
+  }
+
+  .target-node-value {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+    border-top-style: solid;
+    border-top-width: 1px;
+  }
+
+  .target-node-data-type-icon {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+  }
+}

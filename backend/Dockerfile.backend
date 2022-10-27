@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+
+FROM python:3.10
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+COPY ./requirements.txt /app/
+run pip install python-dotenv
+RUN pip install -r requirements.txt
+RUN python -m nltk.downloader punkt
+RUN python -m nltk.downloader wordnet
+RUN python -m nltk.downloader omw-1.4
+RUN python -m nltk.downloader stopwords

@@ -1,0 +1,17 @@
+.react-flow__edge {
+  cursor: grab;
+
+  .react-flow__edge-path {
+    stroke-width: 1.5px !important;
+  }
+
+  &.reverse {
+    .react-flow__edge-path {
+      animation-direction: reverse !important;
+    }
+  }
+
+  .edge-icon-delete {
+    background: var(--cds-layer-01, #f4f4f4);
+  }
+}

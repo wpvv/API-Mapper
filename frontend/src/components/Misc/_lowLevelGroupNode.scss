@@ -1,0 +1,30 @@
+.group-node {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 3px;
+  text-align: center;
+  height: inherit;
+  width: inherit;
+  background-color: var(--cds-layer-02, #ffffff);
+  z-index: 0;
+
+  .group-node-label {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+  }
+  .group-node-data-type-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+  }
+  .group-node-required {
+    padding: 5px 30px 5px 30px;
+    font-size: 10px;
+    color: var(--cds-text-error);
+    border-color: var(--cds-text-primary);
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+  }
+}

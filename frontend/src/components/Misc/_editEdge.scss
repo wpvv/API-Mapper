@@ -1,0 +1,24 @@
+.react-flow__edge {
+  cursor: grab;
+
+  .react-flow__edge-path {
+    stroke-width: 1.5px !important;
+  }
+
+  &.reverse {
+    .react-flow__edge-path {
+      animation-direction: reverse !important;
+    }
+  }
+
+  .edge-icon-edit {
+    background: var(--cds-background, #ffffff);
+  }
+
+  .recommendation-edge {
+    stroke: blue;
+  }
+  .recommendation-edge-icon {
+    color: blue;
+  }
+}

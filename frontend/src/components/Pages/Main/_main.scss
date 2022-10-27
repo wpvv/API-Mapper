@@ -1,0 +1,81 @@
+#hero {
+  background: var(--cds-layer-01, #f4f4f4);
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+}
+
+#background-illustration {
+  position: absolute;
+  right: 4rem;
+  z-index: -1;
+  height: 50vw;
+}
+
+
+#hero-container {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 999;
+}
+
+#hero-container h1 {
+  font-size: 3em;
+  margin-bottom: 1rem;
+}
+
+#hero-button {
+  margin-top: 22px;
+}
+
+#explainer-header {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+#explainer-container {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+#explainer-text p {
+  margin-top: 1rem;
+}
+
+#explainer-button {
+  margin-top: 1rem;
+}
+
+.step {
+  height: 100%;
+  margin-bottom: 1rem;
+}
+
+.step-counter {
+  font-size: 3em;
+  line-height:150%;
+}
+
+.step-title {
+  font-size: 1.25em;
+  line-height: 200%;
+}
+
+@media (min-width: 66rem) {
+  #step-row .step-column:first-child {
+    padding-left: 0;
+  }
+
+  #step-row .step-column:last-child {
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 66rem) {
+  #step-row .step-column {
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
