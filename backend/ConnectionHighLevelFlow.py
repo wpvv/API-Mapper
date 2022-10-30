@@ -15,8 +15,21 @@ connection_high_level_flow = Blueprint(
 @connection_high_level_flow.route(
     "/api/connection/flow/<connection_id>", methods=["GET"]
 )
-def get_connection_config_flow(connection_id, internal=False):
-    config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=True)
+def get_connection_config_flow(connection_id: str, internal: bool = False) -> tuple:
+    """ Function to get the nodes and edges for the gih level flow editor
+
+    This function generates a list of nodes and edges, the list of nodes includes the parent of the edges. The parent
+    represents the application whereas the children represent the APIs. The edges between parent and its children
+    represents the APIs being part of the application. The nodes and edges are already in line with data schema
+    that React flow demands. At the end edges generated from mappings between APIs are appended.
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :param internal: boolean to indicate return type
+    :return: either a flask response with the nodes and edges, or a tuple with the list of nodes and the list of edges
+    """
+    config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=True
+    )
     nodes = []
     edges = []
     specs = {}
@@ -66,10 +79,10 @@ def get_connection_config_flow(connection_id, internal=False):
                                 "operation": operation,
                                 "applicationId": application_id,
                                 "endpointId": endpoint_id,
-                                "serverOverride": "" if "servers" not in specs[application_id]["paths"][path][operation]
-                                else specs[application_id]["paths"][path][operation][
-                                    "servers"
-                                ][0]["url"],
+                                "serverOverride": ""
+                                if "servers"
+                                   not in specs[application_id]["paths"][path][operation]
+                                else specs[application_id]["paths"][path][operation]["servers"][0]["url"],
                             },
                             "parentNode": str(parent_id),
                             "position": {"x": 100, "y": (node_id - parent_id) * 75},
@@ -99,10 +112,10 @@ def get_connection_config_flow(connection_id, internal=False):
                                 "operation": operation,
                                 "applicationId": application_id,
                                 "endpointId": endpoint_id,
-                                "serverOverride": "" if "servers" not in specs[application_id]["paths"][path][operation]
-                                else specs[application_id]["paths"][path][operation][
-                                    "servers"
-                                ][0]["url"],
+                                "serverOverride": ""
+                                if "servers"
+                                   not in specs[application_id]["paths"][path][operation]
+                                else specs[application_id]["paths"][path][operation]["servers"][0]["url"],
                             },
                             "parentNode": str(parent_id),
                             "position": {"x": -100, "y": (node_id - parent_id) * 75},
@@ -138,15 +151,19 @@ def get_connection_config_flow(connection_id, internal=False):
 @connection_high_level_flow.route(
     "/api/connection/flow/get/node/<application_id>", methods=["POST"]
 )
-def get_node(application_id, node_data=None):
+def get_node(application_id: str, node_data: dict = None) -> tuple:
+    """ Function to return all the information about a node in the mapping interface. A node being an API endpoint.
+
+    :param application_id: unique identifier of a application configuration
+    :param node_data: dict containing the path and operation of the requested API endpoint
+    :return: a Flask response with all gathered information on the requested API endpoint
+    """
     if not node_data:
         node_data = request.get_json()
     output = {}
     specs = ConnectionConfig.get_application_specs(application_id)
     try:
-        node_details = specs["paths"][node_data["path"]][
-            node_data["operation"]
-        ]
+        node_details = specs["paths"][node_data["path"]][node_data["operation"]]
     except KeyError:
         return (
             jsonify({"success": False, "message": "Finding this node failed"}),
@@ -183,13 +200,24 @@ def get_node(application_id, node_data=None):
     )
 
 
-def connection_exists(connection_config, endpoint_config):
+def connection_exists(connection_config: dict, endpoint_config: dict) -> bool:
+    """ Function to check if a connection between API endpoints already exists
+
+    :param connection_config: dict containing all the information about a connection between applications
+    :param endpoint_config: dict containing data for the connection that is requested
+    :return: boolean if API endpoint connection exists
+    """
     if "endpointMapping" in connection_config and connection_config["endpointMapping"]:
         edge_index = next(
-            (index for (index, value) in enumerate(connection_config["endpointMapping"]) if
-             value["source"]["endpointId"] == endpoint_config["source"]["endpointId"] and
-             value["target"]["endpointId"] == endpoint_config["target"]["endpointId"]),
-            None)
+            (
+                index
+                for (index, value) in enumerate(connection_config["endpointMapping"])
+                if value["source"]["endpointId"] == endpoint_config["source"]["endpointId"]
+                   and
+                   value["target"]["endpointId"] == endpoint_config["target"]["endpointId"]
+            ),
+            None,
+        )
         return edge_index is not None
     else:
         return False
@@ -198,10 +226,24 @@ def connection_exists(connection_config, endpoint_config):
 @connection_high_level_flow.route(
     "/api/connection/flow/add/edge/<connection_id>", methods=["POST"]
 )
-def add_endpoint_connection(connection_id, endpoint_config=None, recommendation=False, internal=False):
+def add_endpoint_connection(
+        connection_id: str, endpoint_config: dict = None, recommendation: bool = False, internal: bool = False
+) -> bool | tuple:
+    """ Function to add an API connection
+
+    This connection is added to the configuration for the connection between applications
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :param endpoint_config: information on the requested API endpoint connection
+    :param recommendation: if the connection is generated as a recommendation
+    :param internal: boolean to indicate the return type
+    :return: either a success boolean or a Flask response with the success state
+    """
     if not internal:
         endpoint_config = request.get_json()
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if not connection_exists(connection_config, endpoint_config):
         endpoint_config["id"] = str(objectid.ObjectId())
         endpoint_config["recommendation"] = recommendation
@@ -216,62 +258,123 @@ def add_endpoint_connection(connection_id, endpoint_config=None, recommendation=
             return updated
         else:
             if updated:
-                return jsonify({"success": True, "id": endpoint_config["id"]}), 200, {"ContentType": "application/json"}
+                return (
+                    jsonify({"success": True, "id": endpoint_config["id"]}),
+                    200,
+                    {"ContentType": "application/json"},
+                )
             else:
-                return jsonify(
-                    {"success": False, "message": "Saving the new connection failed"}
-                ), 500, {"ContentType": "application/json"}
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Saving the new connection failed",
+                        }
+                    ),
+                    500,
+                    {"ContentType": "application/json"},
+                )
     else:
         if internal:
-            return None
-        return jsonify(
-            {"success": False, "message": "Connection already exists"}
-        ), 400, {"ContentType": "application/json"}
+            return False
+        return (
+            jsonify({"success": False, "message": "Connection already exists"}),
+            400,
+            {"ContentType": "application/json"},
+        )
 
 
 @connection_high_level_flow.route(
     "/api/connection/flow/edge/<connection_id>/<edge_id>", methods=["DELETE"]
 )
-def delete_endpoint_connection(connection_id, edge_id):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+def delete_endpoint_connection(connection_id: str, edge_id: str) -> tuple:
+    """ Function to delete a connection between API endpoints
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :param edge_id: unique identifier of the API endpoint connection that needs to be deleted
+    :return: Flask response with indication of successful deletion
+    """
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if "endpointMapping" in connection_config:
         edge_index = next(
-            (index for (index, value) in enumerate(connection_config["endpointMapping"]) if value["id"] == edge_id),
-            None)
+            (
+                index
+                for (index, value) in enumerate(connection_config["endpointMapping"])
+                if value["id"] == edge_id
+            ),
+            None,
+        )
         if edge_index is not None:
             connection_config["endpointMapping"].pop(edge_index)
-            id = ConnectionConfig.update_connection_config(
+            updated = ConnectionConfig.update_connection_config(
                 connection_id, connection_config, internal=True
             )
-            if id:
-                return jsonify({"success": True}), 200, {"ContentType": "application/json"}
+            if updated:
+                return (
+                    jsonify({"success": True}),
+                    200,
+                    {"ContentType": "application/json"},
+                )
             else:
-                return jsonify(
-                    {"success": False, "message": "Deleting this connection failed"}
-                ), 500, {"ContentType": "application/json"}
-    return jsonify(
-        {"success": False, "message": "This connection was not found"}
-    ), 500, {"ContentType": "application/json"}
+                return (
+                    jsonify(
+                        {"success": False, "message": "Deleting this connection failed"}
+                    ),
+                    500,
+                    {"ContentType": "application/json"},
+                )
+    return (
+        jsonify({"success": False, "message": "This connection was not found"}),
+        500,
+        {"ContentType": "application/json"},
+    )
 
 
-def generate_node_connections_from_mapping(connection_id, nodes):
+def generate_node_connections_from_mapping(connection_id: str, nodes: list) -> list:
+    """ Function to generate React flow edges for API endpoint connections
+
+    This function generates a list of edges to append to the base list of nodes and edges. This edge extension
+    represents edges that are connections between API endpoints.
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :param nodes: list of API endpoints as React flow Nodes
+    :return: list of edges
+    """
     edges = []
     mapping = get_endpoint_connections(connection_id)
     if mapping is not None:
         for connection in json.loads(mapping):
             source = target = -1
             for application in ["source", "target"]:
-                if "label" in connection[application] and connection[application]["label"] == "Variables":
-                    if ("operation" in connection["source"] and connection["source"]["operation"] == "get") or (
-                            "operation" in connection["target"] and connection["target"]["operation"] == "get"):
+                if (
+                        "label" in connection[application]
+                        and connection[application]["label"] == "Variables"
+                ):
+                    if (
+                            "operation" in connection["source"]
+                            and connection["source"]["operation"] == "get"
+                    ) or (
+                            "operation" in connection["target"]
+                            and connection["target"]["operation"] == "get"
+                    ):
                         target = 0
-                    elif ("operation" in connection["target"] and connection["target"]["operation"] != "get") or (
-                            "operation" in connection["source"] and connection["source"]["operation"] != "get"):
+                    elif (
+                            "operation" in connection["target"]
+                            and connection["target"]["operation"] != "get"
+                    ) or (
+                            "operation" in connection["source"]
+                            and connection["source"]["operation"] != "get"
+                    ):
                         source = 0
                 else:
                     for node in nodes:
                         if "path" in node["data"] and "operation" in node["data"]:
-                            if "path" in connection[application] and "operation" in connection[application]:
+                            if (
+                                    "path" in connection[application]
+                                    and "operation" in connection[application]
+                            ):
                                 if (
                                         node["data"]["path"]
                                         == connection[application]["path"]
@@ -290,58 +393,110 @@ def generate_node_connections_from_mapping(connection_id, nodes):
                         "target": str(target),
                         "animated": True,
                         "type": "editEdge",
-                        "data": {"offset": random.randint(-5, 5) * 10, "recommendation": connection["recommendation"]},
+                        "data": {
+                            "offset": random.randint(-5, 5) * 10,
+                            "recommendation": connection["recommendation"],
+                        },
                     }
                 )
             else:
                 print(
-                    "Error in generate_node_connections_from_mapping(): either source or target could not be found")
+                    "Error in generate_node_connections_from_mapping(): either source or target could not be found"
+                )
     return edges
 
 
 @connection_high_level_flow.route(
     "/api/connection/get/edges/<connection_id>", methods=["GET"]
 )
-def get_endpoint_connections(connection_id):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+def get_endpoint_connections(connection_id: str) -> str:
+    """ Function to get a list of connections between API endpoints
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :return: a list of connections between API endpoints
+    """
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if "endpointMapping" in connection_config:
         return json.dumps(connection_config["endpointMapping"])
     else:
-        return None
+        return ""
 
 
 @connection_high_level_flow.route(
     "/api/connection/save/<connection_id>",
     methods=["GET"],
 )
-def save_final_connection(connection_id):
+def save_final_connection(connection_id: str) -> tuple:
+    """ Function to "save" all the mapping and return any incomplete mappings.
+
+    Function that sets the state of the connection between the applications. It does not save it because a mapping is
+    already saved upon creation. This function does check all mappings for completion and sets its state.
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :return: a Flask response with the result of the checks
+    """
     if ConnectionLowLevelFlow.save_mappings(connection_id):
         if ConnectionConfig.set_state(connection_id):
-            config = ConnectionConfig.get_connection_config(connection_id, internal=True)
+            config = ConnectionConfig.get_connection_config(
+                connection_id, internal=True
+            )
             if config["state"] == "Complete":
-                return jsonify({"success": True, "state": "Complete"}), 200, {"ContentType": "application/json"}
+                return (
+                    jsonify({"success": True, "state": "Complete"}),
+                    200,
+                    {"ContentType": "application/json"},
+                )
             else:
-                return jsonify({"success": True, "state": "Incomplete", "reason": config["state"],
-                                "incompleteMappings": get_incomplete_APIs(connection_id)}), 200, {
-                           "ContentType": "application/json"}
+                return (
+                    jsonify(
+                        {
+                            "success": True,
+                            "state": "Incomplete",
+                            "reason": config["state"],
+                            "incompleteMappings": get_incomplete_APIs(connection_id),
+                        }
+                    ),
+                    200,
+                    {"ContentType": "application/json"},
+                )
         else:
             print("Error in save_final_connection: status failed")
-            return jsonify(
-                {"success": False, "message": "Detecting and setting status failed"}
-            ), 500, {"ContentType": "application/json"}
+            return (
+                jsonify(
+                    {"success": False, "message": "Detecting and setting status failed"}
+                ),
+                500,
+                {"ContentType": "application/json"},
+            )
 
     else:
         print("Error in save_final_connection: saving mappings failed")
-        return jsonify(
-            {"success": False, "message": "Saving the low level mappings failed"}
-        ), 500, {"ContentType": "application/json"}
+        return (
+            jsonify(
+                {"success": False, "message": "Saving the low level mappings failed"}
+            ),
+            500,
+            {"ContentType": "application/json"},
+        )
 
 
 @connection_high_level_flow.route(
     "/api/connection/recommendations/<connection_id>",
     methods=["GET"],
 )
-def get_recommendations(connection_id):
+def get_recommendations(connection_id: str) -> tuple:
+    """ Function to make the High level interface interact with the recommendations module.
+
+    This function is called when the user presses the "Get recommendations" button in the high level interface.
+    It will use the recommendations module to generate recommended connections APIs. Generated recommendations are then
+    converted to a list of endpoint connections with the correct source and target, depending on the operation of the
+    endpoints.
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :return: a Flask response with the nodes and edges after the new recommended connections (edges) have been added
+    """
     config = ConnectionConfig.get_connection_config(connection_id, internal=True)
     predictions = ConnectionRecommendations.make_prediction(config["applicationIds"])
     for connection in predictions:
@@ -353,7 +508,7 @@ def get_recommendations(connection_id):
                 "label": connection[application + "_original_path"],
                 "operation": connection[application + "_operation"],
                 "path": connection[application + "_original_path"],
-                "serverOverride": connection[application + "_server_override"]
+                "serverOverride": connection[application + "_server_override"],
             }
         if connection["application1_operation"] == "get":
             endpoint_config["source"] = endpoint_config.pop("application1")
@@ -362,13 +517,27 @@ def get_recommendations(connection_id):
         else:
             endpoint_config["source"] = endpoint_config.pop("application2")
             endpoint_config["target"] = endpoint_config.pop("application1")
-        add_endpoint_connection(connection_id, endpoint_config=endpoint_config, recommendation=True, internal=True)
+        add_endpoint_connection(
+            connection_id,
+            endpoint_config=endpoint_config,
+            recommendation=True,
+            internal=True,
+        )
     print("Generated " + str(len(predictions)) + " recommendations")
     nodes, edges = get_connection_config_flow(connection_id, internal=True)
-    return jsonify({"success": True, "data": {"nodes": nodes, "edges": edges}}), 200, {"ContentType": "application/json"}
+    return (
+        jsonify({"success": True, "data": {"nodes": nodes, "edges": edges}}),
+        200,
+        {"ContentType": "application/json"},
+    )
 
 
-def get_incomplete_APIs(connection_id):
+def get_incomplete_APIs(connection_id: str) -> list:
+    """ Function to return a list of all the API connections that are incomplete.
+
+    :param connection_id: Unique identifier for the connection configuration between applications
+    :return: a list with the generate name for the connection of 2 API endpoints
+    """
     config = ConnectionConfig.get_connection_config(connection_id, internal=True)
     incomplete_mappings = []
     if "endpointMapping" in config and config["endpointMapping"]:
@@ -377,12 +546,3 @@ def get_incomplete_APIs(connection_id):
                 incomplete_name = ConnectionLowLevelFlow.generate_connection_name(api)
                 incomplete_mappings.append(incomplete_name)
     return incomplete_mappings
-
-
-@connection_high_level_flow.route(
-    "/api/connection/test",
-    methods=["GET"],
-)
-def test():
-    ConnectionRecommendations.test()
-    return jsonify({"success": True}), 200, {"ContentType": "application/json"}

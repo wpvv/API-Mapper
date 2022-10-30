@@ -228,7 +228,9 @@ def get_application_config(application_id: str, internal: bool = False) -> tuple
 
 
 @application_config.route("/api/application/save/<application_id>", methods=["POST"])
-def update_application_config(application_id: str, config: dict = None, check_sdk: bool = True) -> tuple:
+def update_application_config(
+    application_id: str, config: dict = None, check_sdk: bool = True
+) -> tuple:
     """Returns the application id after updating the application with a given config
 
     This function updates a application config with the given config. The config can be either given by function call
@@ -659,9 +661,7 @@ def generate_sdk(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/sdk/<application_id>", methods=["DELETE"]
-)
+@application_config.route("/api/application/sdk/<application_id>", methods=["DELETE"])
 def delete_sdk(application_id: str) -> tuple:
     """Returns status after deleting an application sdk
 
@@ -690,11 +690,9 @@ def delete_sdk(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/download/<application_id>", methods=["GET"]
-)
+@application_config.route("/api/application/download/<application_id>", methods=["GET"])
 def download_openapi(application_id: str) -> tuple:
-    """ Function to serve the OpenAPI document
+    """Function to serve the OpenAPI document
 
     This function serves as a download API for the OpenAPI document of a given application
 
