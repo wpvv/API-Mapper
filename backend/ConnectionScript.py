@@ -1,12 +1,12 @@
+import base64
 import os
 
 from flask import Blueprint, jsonify, request
-import base64
 
-import ConnectionLowLevelFlow
 import ConnectionConfig
-import MappingGenerator
+import ConnectionLowLevelFlow
 import ConnectionVariable
+import MappingGenerator
 
 connection_script = Blueprint("ConnectionScript", __name__, template_folder="templates")
 

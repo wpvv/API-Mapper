@@ -1,14 +1,15 @@
 import importlib
 import io
-from datetime import date, datetime
-import json
 import sys
 import traceback
+from datetime import date, datetime
 
 import jsonpickle
 from glom import glom
 
-import ConnectionVariable, SyncServer, MappingGenerator
+import ConnectionVariable
+import MappingGenerator
+import SyncServer
 
 
 def get_url_with_parameters(url, packed_parameters):
@@ -22,8 +23,14 @@ def search_id_in_schema(id, schema):
 
 
 def get_schema_mapping(endpoint, mapping_id):
-    return next((mapping for mapping in endpoint["schemaMapping"] if mapping["target"] == mapping_id),
-                None)
+    return next(
+        (
+            mapping
+            for mapping in endpoint["schemaMapping"]
+            if mapping["target"] == mapping_id
+        ),
+        None,
+    )
 
 
 def get_parameter_value(connection_config, endpoint, data_target_id):
@@ -33,12 +40,18 @@ def get_parameter_value(connection_config, endpoint, data_target_id):
         if search_id_in_schema(data_source_id, endpoint["source"]["schemaItems"]):
             print("NEED FURTHER INVESTIGATION")
             return
-        elif ConnectionVariable.search_in_variables(connection_config["id"], data_source_id):
-            element = ConnectionVariable.get_variable(connection_config["id"], data_source_id)
+        elif ConnectionVariable.search_in_variables(
+            connection_config["id"], data_source_id
+        ):
+            element = ConnectionVariable.get_variable(
+                connection_config["id"], data_source_id
+            )
             return element["value"]
         else:
             SyncServer.sync_server_log.error(
-                "Not able to get variable value to satisfy the parameter, parameter id:" + data_target_id)
+                "Not able to get variable value to satisfy the parameter, parameter id:"
+                + data_target_id
+            )
             return
     else:
         raise LookupError("Schema mapping for parameter not found")
@@ -48,7 +61,9 @@ def generate_packed_path_parameters(connection_config, endpoint, endpoint_end):
     packed_path_parameters = {}
     for parameter in endpoint[endpoint_end]["parameterItems"]:
         if "in" in parameter and parameter["in"] == "path":
-            parameter_value = get_parameter_value(connection_config, endpoint, parameter["id"])
+            parameter_value = get_parameter_value(
+                connection_config, endpoint, parameter["id"]
+            )
             if parameter_value is not None:
                 packed_path_parameters[parameter["name"]] = parameter_value
     return packed_path_parameters
@@ -66,12 +81,18 @@ def generate_target_data(api_instance, endpoint, source_response, connection_con
         glom_mapping = jsonpickle.decode(endpoint["glomMapping"])
         try:
             target_data = glom(source_response, glom_mapping)
-            packed_target_data[api_instance.users_post_endpoint.params_map["all"][0]] = target_data
+            packed_target_data[
+                api_instance.users_post_endpoint.params_map["all"][0]
+            ] = target_data
             return packed_target_data
 
         except Exception as e:
             SyncServer.sync_server_log.error(
-                "Error while generating target data: endpoint id:" + endpoint["id"] + "error encountered: " + str(e))
+                "Error while generating target data: endpoint id:"
+                + endpoint["id"]
+                + "error encountered: "
+                + str(e)
+            )
     elif endpoint["type"] == "script":
         schema_mapping_id = endpoint["target"]["schemaItems"][0]["id"]
         schema_mapping = get_schema_mapping(endpoint, schema_mapping_id)
@@ -82,7 +103,9 @@ def generate_target_data(api_instance, endpoint, source_response, connection_con
                 sys.path.append("connection_scripts")
                 script = importlib.import_module(script_id)
                 try:
-                    SyncServer.sync_server_log.info("Converting response with custom script")
+                    SyncServer.sync_server_log.info(
+                        "Converting response with custom script"
+                    )
                     target_data = script.main(source_response, **kwargs)
                     body_param_name = get_body_param_name(api_instance, endpoint)
                     if body_param_name:
@@ -90,22 +113,36 @@ def generate_target_data(api_instance, endpoint, source_response, connection_con
                         return packed_target_data
                 except Exception as e:
                     SyncServer.sync_server_log.error(
-                        "Error in added script, script id: " + script_id + ", error: " + str(e))
-                    SyncServer.sync_server_log.error(
-                        traceback.format_exc())
+                        "Error in added script, script id: "
+                        + script_id
+                        + ", error: "
+                        + str(e)
+                    )
+                    SyncServer.sync_server_log.error(traceback.format_exc())
             except ImportError as e:
                 SyncServer.sync_server_log.error(
-                    "Error while generating target data with script id:" + script_id + "error encountered: " + str(
-                        e))
+                    "Error while generating target data with script id:"
+                    + script_id
+                    + "error encountered: "
+                    + str(e)
+                )
     else:
         raise ValueError(
-            "Connection type is not supported, either glom or script is supported, given type:" + endpoint["type"])
+            "Connection type is not supported, either glom or script is supported, given type:"
+            + endpoint["type"]
+        )
 
 
-def generate_calling_kwargs(api_instance, connection_config, endpoint, endpoint_end, source_response=None):
-    packed_path_parameters = generate_packed_path_parameters(connection_config, endpoint, endpoint_end)
+def generate_calling_kwargs(
+    api_instance, connection_config, endpoint, endpoint_end, source_response=None
+):
+    packed_path_parameters = generate_packed_path_parameters(
+        connection_config, endpoint, endpoint_end
+    )
     if source_response is not None:
-        target_data = generate_target_data(api_instance, endpoint, source_response, connection_config)
+        target_data = generate_target_data(
+            api_instance, endpoint, source_response, connection_config
+        )
         return dict(packed_path_parameters, **target_data)
     else:
         return packed_path_parameters
@@ -121,14 +158,20 @@ def generate_variables_as_kwargs(connection_id):
 
 def set_variables(connection_config, endpoint, source_response):
     for schema_mapping in endpoint["schemaMapping"]:
-        if ConnectionVariable.search_in_variables(connection_config["id"], schema_mapping["target"]):
+        if ConnectionVariable.search_in_variables(
+            connection_config["id"], schema_mapping["target"]
+        ):
             if schema_mapping["type"] == "direct":
-                data_location = MappingGenerator.find_schema_item(connection_config["id"], "source",
-                                                                  endpoint, schema_mapping["source"])
+                data_location = MappingGenerator.find_schema_item(
+                    connection_config["id"],
+                    "source",
+                    endpoint,
+                    schema_mapping["source"],
+                )
                 if data_location == "schema":
-                    found_path = \
-                        MappingGenerator.find_path_in_json_schema(endpoint["source"]["schema"],
-                                                                  schema_mapping["source"])
+                    found_path = MappingGenerator.find_path_in_json_schema(
+                        endpoint["source"]["schema"], schema_mapping["source"]
+                    )
                     if found_path:
                         found_path = found_path[0]
                     else:
@@ -138,14 +181,22 @@ def set_variables(connection_config, endpoint, source_response):
                     target_paths = found_path.split(".")
                     value = MappingGenerator.get_by_path(source_response, target_paths)
                     SyncServer.sync_server_log.info(
-                        "Setting variable: " +
-                        ConnectionVariable.get_variable(connection_config["id"], schema_mapping["target"])[
-                            "name"] + " with the following value: " + str(value))
-                    if not ConnectionVariable.set_variable(connection_config["id"], schema_mapping["target"], value):
-                        SyncServer.sync_server_log.error("Error while trying to set value for a variable, variable: " +
-                                                         ConnectionVariable.get_variable(connection_config["id"],
-                                                                                         schema_mapping["target"])[
-                                                             "name"])
+                        "Setting variable: "
+                        + ConnectionVariable.get_variable(
+                            connection_config["id"], schema_mapping["target"]
+                        )["name"]
+                        + " with the following value: "
+                        + str(value)
+                    )
+                    if not ConnectionVariable.set_variable(
+                        connection_config["id"], schema_mapping["target"], value
+                    ):
+                        SyncServer.sync_server_log.error(
+                            "Error while trying to set value for a variable, variable: "
+                            + ConnectionVariable.get_variable(
+                                connection_config["id"], schema_mapping["target"]
+                            )["name"]
+                        )
                         SyncServer.stop_sync_server(emergency_stop=True)
             elif schema_mapping["type"] == "script":
                 script_id = schema_mapping["id"]
@@ -154,33 +205,53 @@ def set_variables(connection_config, endpoint, source_response):
                     sys.path.append("connection_scripts")
                     script = importlib.import_module(script_id)
                     try:
-                        SyncServer.sync_server_log.info("Converting response with custom script")
+                        SyncServer.sync_server_log.info(
+                            "Converting response with custom script"
+                        )
                         value = script.main(source_response, **kwargs)
                         SyncServer.sync_server_log.info(
-                            "Setting variable: " +
-                            ConnectionVariable.get_variable(connection_config["id"], schema_mapping["target"])[
-                                "name"] + " with the following value: " + str(value))
-                        if not ConnectionVariable.set_variable(connection_config["id"], schema_mapping["target"],
-                                                               value):
+                            "Setting variable: "
+                            + ConnectionVariable.get_variable(
+                                connection_config["id"], schema_mapping["target"]
+                            )["name"]
+                            + " with the following value: "
+                            + str(value)
+                        )
+                        if not ConnectionVariable.set_variable(
+                            connection_config["id"], schema_mapping["target"], value
+                        ):
                             SyncServer.sync_server_log.error(
-                                "Error while trying to set value for a variable, variable: " +
-                                ConnectionVariable.get_variable(connection_config["id"],
-                                                                schema_mapping["target"])["name"] + ", value: " + str(value))
+                                "Error while trying to set value for a variable, variable: "
+                                + ConnectionVariable.get_variable(
+                                    connection_config["id"], schema_mapping["target"]
+                                )["name"]
+                                + ", value: "
+                                + str(value)
+                            )
                             SyncServer.stop_sync_server(emergency_stop=True)
                     except Exception as e:
                         SyncServer.sync_server_log.error(
-                            "Error in added script, script id: " + script_id + ", error: " + str(e))
-                        SyncServer.sync_server_log.error(
-                            traceback.format_exc())
+                            "Error in added script, script id: "
+                            + script_id
+                            + ", error: "
+                            + str(e)
+                        )
+                        SyncServer.sync_server_log.error(traceback.format_exc())
                 except ImportError as e:
                     SyncServer.sync_server_log.error(
-                        "Error while generating target data with script id:" + script_id + "error encountered: " + str(
-                            e))
+                        "Error while generating target data with script id:"
+                        + script_id
+                        + "error encountered: "
+                        + str(e)
+                    )
 
             else:
                 SyncServer.sync_server_log.error(
-                    "Error while trying to set value for a variable, type of schema mapping is unknown, variable: " +
-                    ConnectionVariable.get_variable(connection_config["id"], schema_item["target"])["name"])
+                    "Error while trying to set value for a variable, type of schema mapping is unknown, variable: "
+                    + ConnectionVariable.get_variable(
+                        connection_config["id"], schema_item["target"]
+                    )["name"]
+                )
                 SyncServer.stop_sync_server(emergency_stop=True)
     return {}
 
@@ -206,9 +277,10 @@ def model_to_dict(model_instance, serialize=True):
 
     def extract_item(item):
         return (
-            item[0], model_to_dict(
-                item[1], serialize=serialize)) if hasattr(
-            item[1], '_data_store') else item
+            (item[0], model_to_dict(item[1], serialize=serialize))
+            if hasattr(item[1], "_data_store")
+            else item
+        )
 
     model_instances = [model_instance]
     if model_instance._composed_schemas:
@@ -239,21 +311,15 @@ def model_to_dict(model_instance, serialize=True):
                         # elif isinstance(v, ModelSimple):
                         #     res.append(v.value)
                         elif isinstance(v, dict):
-                            res.append(dict(map(
-                                extract_item,
-                                v.items()
-                            )))
+                            res.append(dict(map(extract_item, v.items())))
                         else:
                             res.append(model_to_dict(v, serialize=serialize))
                     result[attr] = res
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    extract_item,
-                    value.items()
-                ))
+                result[attr] = dict(map(extract_item, value.items()))
             # elif isinstance(value, ModelSimple):
             #     result[attr] = value.value
-            elif hasattr(value, '_data_store'):
+            elif hasattr(value, "_data_store"):
                 result[attr] = model_to_dict(value, serialize=serialize)
             else:
                 result[attr] = value
@@ -264,7 +330,9 @@ def model_to_dict(model_instance, serialize=True):
                 continue
             if python_key == json_key:
                 continue
-            json_key_assigned_no_need_for_python_key = json_key in seen_json_attribute_names
+            json_key_assigned_no_need_for_python_key = (
+                json_key in seen_json_attribute_names
+            )
             if json_key_assigned_no_need_for_python_key:
                 del result[python_key]
 

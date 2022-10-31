@@ -1,13 +1,12 @@
-import jsonpickle
 from copy import copy
 
+import jsonpickle
 from bson import objectid
 from flask import Blueprint, jsonify, request
-import json
 
-import ConnectionVariable
-import ConnectionHighLevelFlow
 import ConnectionConfig
+import ConnectionHighLevelFlow
+import ConnectionVariable
 import DataTypeUtils
 import MappingGenerator
 
@@ -17,11 +16,35 @@ connection_low_level_flow = Blueprint(
 
 
 def travers_nodes_helper(node, target):
+    """
+
+    :param node:
+    :param target:
+    :return:
+    """
     found_nodes = []
 
     def traverse_nodes(
-            start_node, found_nodes, target, name="", in_element="", parent=None, in_array=False, required=[]
+        start_node,
+        found_nodes,
+        target,
+        name="",
+        in_element="",
+        parent=None,
+        in_array=False,
+        required=[],
     ):
+        """
+
+        :param start_node:
+        :param found_nodes:
+        :param target:
+        :param name:
+        :param in_element:
+        :param parent:
+        :param in_array:
+        :param required:
+        """
         if "oneOf" not in start_node and "anyOf" not in start_node:
             node_type = start_node["type"] if "type" in start_node else "null"
             node = {
@@ -46,7 +69,9 @@ def travers_nodes_helper(node, target):
                         in_element="object",
                         parent=node,
                         in_array=in_array,
-                        required=start_node["required"] if "required" in start_node else []
+                        required=start_node["required"]
+                        if "required" in start_node
+                        else [],
                     )
             elif node_type == "array" and "items" in start_node:
                 traverse_nodes(
@@ -57,7 +82,7 @@ def travers_nodes_helper(node, target):
                     in_element="array",
                     parent=node,
                     in_array=True,
-                    required=start_node["required"] if "required" in start_node else []
+                    required=start_node["required"] if "required" in start_node else [],
                 )
 
     traverse_nodes(node, found_nodes, target)
@@ -65,6 +90,12 @@ def travers_nodes_helper(node, target):
 
 
 def get_data_sources(source_application_id, node_data):
+    """
+
+    :param source_application_id:
+    :param node_data:
+    :return:
+    """
     sources = []
     (
         node,
@@ -80,6 +111,12 @@ def get_data_sources(source_application_id, node_data):
 
 
 def get_data_targets(target_application_id, node_data):
+    """
+
+    :param target_application_id:
+    :param node_data:
+    :return:
+    """
     targets = []
     (
         node,
@@ -91,20 +128,28 @@ def get_data_targets(target_application_id, node_data):
         if "requestSchema" in node and "type" in node["requestSchema"]:
             node = node["requestSchema"]
             if node["type"] != "object" and node["type"] != "array":
-                targets.append({
-                    "id": str(objectid.ObjectId()),
-                    "name": "Entire endpoint",
-                    "type": node["type"],
-                    "parent": "",
-                    "parentType": "",
-                    "inArray": False,
-                })
+                targets.append(
+                    {
+                        "id": str(objectid.ObjectId()),
+                        "name": "Entire endpoint",
+                        "type": node["type"],
+                        "parent": "",
+                        "parentType": "",
+                        "inArray": False,
+                    }
+                )
             else:
                 targets.extend(travers_nodes_helper(node, True))
     return node, targets
 
 
 def get_node_parameters(application_id, node_data):
+    """
+
+    :param application_id:
+    :param node_data:
+    :return:
+    """
     parameters = []
     (
         node,
@@ -116,9 +161,9 @@ def get_node_parameters(application_id, node_data):
         if "parameters" in node:
             for parameter in node["parameters"]:
                 if (
-                        "schema" in parameter
-                        and "type" in parameter["schema"]
-                        and "name" in parameter
+                    "schema" in parameter
+                    and "type" in parameter["schema"]
+                    and "name" in parameter
                 ):
                     data_type = DataTypeUtils.convert_openapi_to_json(
                         parameter["schema"]["type"]
@@ -143,6 +188,11 @@ def get_node_parameters(application_id, node_data):
 
 
 def get_target_and_source_names(schema_config):
+    """
+
+    :param schema_config:
+    :return:
+    """
     source = target = ""
     if "applicationId" in schema_config["source"]:
         source = ConnectionConfig.get_application_name(
@@ -156,16 +206,24 @@ def get_target_and_source_names(schema_config):
 
 
 def get_schema_connections(schema_config):
-    if (
-            "schemaMapping" in schema_config
-            and schema_config["schemaMapping"]
-    ):
+    """
+
+    :param schema_config:
+    :return:
+    """
+    if "schemaMapping" in schema_config and schema_config["schemaMapping"]:
         return schema_config["schemaMapping"]
     else:
         return []
 
 
 def find_mapping_index(connection_config, mapping_id):
+    """
+
+    :param connection_config:
+    :param mapping_id:
+    :return:
+    """
     return next(
         (
             index
@@ -177,7 +235,15 @@ def find_mapping_index(connection_config, mapping_id):
 
 
 def get_endpoint_mapping(connection_id, mapping_id):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :return:
+    """
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     mapping_index = find_mapping_index(connection_config, mapping_id)
     if mapping_index is not None:
         return connection_config["endpointMapping"][mapping_index]
@@ -187,22 +253,39 @@ def get_endpoint_mapping(connection_id, mapping_id):
 
 
 def update_endpoint_mapping(connection_id, mapping_id, schema_config):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :param schema_config:
+    :return:
+    """
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     mapping_index = find_mapping_index(connection_config, mapping_id)
     connection_config["endpointMapping"][mapping_index] = schema_config
-    id = ConnectionConfig.update_connection_config(
+    updated = ConnectionConfig.update_connection_config(
         connection_id, connection_config, internal=True
     )
-    if id:
+    if updated:
         return True
     else:
         return False
 
 
 def add_schema_mapping_endpoints(connection_id, mapping_id):
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :return:
+    """
     schema_config = get_endpoint_mapping(connection_id, mapping_id)
     if schema_config:
-        targets = target_schema = target_parameters = sources = source_schema = source_parameters = []
+        targets = (
+            target_schema
+        ) = target_parameters = sources = source_schema = source_parameters = []
         if "applicationId" in schema_config["source"]:
             source_schema, sources = get_data_sources(
                 schema_config["source"]["applicationId"],
@@ -239,9 +322,7 @@ def add_schema_mapping_endpoints(connection_id, mapping_id):
                 jsonify(
                     {
                         "success": True,
-                        "applicationNames": get_target_and_source_names(
-                            schema_config
-                        ),
+                        "applicationNames": get_target_and_source_names(schema_config),
                         "dataSources": sources,
                         "dataTargets": targets,
                         "dataVariables": variables,
@@ -271,11 +352,17 @@ def add_schema_mapping_endpoints(connection_id, mapping_id):
     methods=["GET"],
 )
 def get_schema_mapping(connection_id, mapping_id):
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :return:
+    """
     schema_config = get_endpoint_mapping(connection_id, mapping_id)
     if schema_config:
         if (
-                "schemaItems" not in schema_config["source"]
-                or "schemaItems" not in schema_config["target"]
+            "schemaItems" not in schema_config["source"]
+            or "schemaItems" not in schema_config["target"]
         ):
             return add_schema_mapping_endpoints(connection_id, mapping_id)
         else:
@@ -283,17 +370,19 @@ def get_schema_mapping(connection_id, mapping_id):
                 jsonify(
                     {
                         "success": True,
-                        "applicationNames": get_target_and_source_names(
-                            schema_config
-                        ),
+                        "applicationNames": get_target_and_source_names(schema_config),
                         "dataSources": schema_config["source"]["schemaItems"],
                         "dataTargets": schema_config["target"]["schemaItems"],
                         "dataVariables": ConnectionVariable.get_variable_sources(
                             connection_id
                         ),
-                        "dataSourceParameters": schema_config["source"]["parameterItems"],
-                        "dataTargetParameters": schema_config["target"]["parameterItems"],
-                        "schemaConnections": get_schema_connections(schema_config)
+                        "dataSourceParameters": schema_config["source"][
+                            "parameterItems"
+                        ],
+                        "dataTargetParameters": schema_config["target"][
+                            "parameterItems"
+                        ],
+                        "schemaConnections": get_schema_connections(schema_config),
                     }
                 ),
                 200,
@@ -313,6 +402,11 @@ def get_schema_mapping(connection_id, mapping_id):
 
 
 def reverse_position(position):
+    """
+
+    :param position:
+    :return:
+    """
     if position == "left":
         return "right"
     elif position == "right":
@@ -323,18 +417,30 @@ def reverse_position(position):
         return "top"
 
 
-def get_position_from_type(type):
-    if type == "source":
+def get_position_from_type(node_type):
+    """
+
+    :param node_type:
+    :return:
+    """
+    if node_type == "source":
         return "right"
-    elif type == "target":
+    elif node_type == "target":
         return "left"
-    elif type == "variable":
+    elif node_type == "variable":
         return "top"
     else:
         return "bottom"
 
 
-def generate_parent_node(parent_id, label, type):
+def generate_parent_node(parent_id, label, node_type):
+    """
+
+    :param parent_id:
+    :param label:
+    :param node_type:
+    :return:
+    """
     node = {
         "id": parent_id,
         "data": {
@@ -344,16 +450,22 @@ def generate_parent_node(parent_id, label, type):
         "connectable": False,
         "selectable": False,
     }
-    if type == "target":
+    if node_type == "target":
         node["type"] = "output"
-        node["targetPosition"] = reverse_position(get_position_from_type(type))
+        node["targetPosition"] = reverse_position(get_position_from_type(node_type))
     else:
         node["type"] = "input"
-        node["sourcePosition"] = reverse_position(get_position_from_type(type))
+        node["sourcePosition"] = reverse_position(get_position_from_type(node_type))
     return node
 
 
-def generate_group_node(data, type):
+def generate_group_node(data, node_type):
+    """
+
+    :param data:
+    :param node_type:
+    :return:
+    """
     node = {
         "id": data["id"],
         "data": {
@@ -369,19 +481,26 @@ def generate_group_node(data, type):
         node["extent"] = "parent"
         node["data"]["child"] = True
     else:  # so only the outer parents gets connection hooks
-        if type == "target":
-            node["sourcePosition"] = get_position_from_type(type)
-            node["targetPosition"] = reverse_position(get_position_from_type(type))
+        if node_type == "target":
+            node["sourcePosition"] = get_position_from_type(node_type)
+            node["targetPosition"] = reverse_position(get_position_from_type(node_type))
         else:
-            node["sourcePosition"] = reverse_position(get_position_from_type(type))
-            node["targetPosition"] = get_position_from_type(type)
-        node["data"]["nodeType"] = "entire-" + type
+            node["sourcePosition"] = reverse_position(get_position_from_type(node_type))
+            node["targetPosition"] = get_position_from_type(node_type)
+        node["data"]["nodeType"] = "entire-" + node_type
     return node
 
 
-def generate_node(data, label, type):
+def generate_node(data, label, node_type):
+    """
+
+    :param data:
+    :param label:
+    :param node_type:
+    :return:
+    """
     if data["type"] == "array" or data["type"] == "object":
-        return generate_group_node(data, type)
+        return generate_group_node(data, node_type)
     else:
         node = {
             "id": data["id"],
@@ -391,22 +510,21 @@ def generate_node(data, label, type):
                 "type": data["type"],
                 "required": False if "required" not in data else data["required"],
                 "child": False,
-                "nodeType": type,
-                "inArray": data["inArray"] if "inArray" in data else False
+                "nodeType": node_type,
+                "inArray": data["inArray"] if "inArray" in data else False,
             },
-
             "selectable": False,
             "position": {"x": 10, "y": 10},
             "type": "targetNode",
         }
-        if type == "target":
+        if node_type == "target":
             if "parent" not in data or not data["parent"]:
-                node["sourcePosition"] = get_position_from_type(type)
-            node["targetPosition"] = reverse_position(get_position_from_type(type))
+                node["sourcePosition"] = get_position_from_type(node_type)
+            node["targetPosition"] = reverse_position(get_position_from_type(node_type))
         else:
-            node["sourcePosition"] = reverse_position(get_position_from_type(type))
+            node["sourcePosition"] = reverse_position(get_position_from_type(node_type))
             if "parent" not in data or not data["parent"]:
-                node["targetPosition"] = get_position_from_type(type)
+                node["targetPosition"] = get_position_from_type(node_type)
         if "value" in data:
             node["data"]["value"] = "value: " + str(data["value"])
         if "parent" in data and data["parent"]:
@@ -417,6 +535,12 @@ def generate_node(data, label, type):
 
 
 def generate_edge(source_id, target_id):
+    """
+
+    :param source_id:
+    :param target_id:
+    :return:
+    """
     return {
         "id": "e" + str(source_id) + "-" + str(target_id),
         "source": str(source_id),
@@ -426,6 +550,11 @@ def generate_edge(source_id, target_id):
 
 
 def get_variable_nodes(variables):
+    """
+
+    :param variables:
+    :return:
+    """
     nodes = []
     edges = []
     parent_id = str(objectid.ObjectId())
@@ -437,6 +566,13 @@ def get_variable_nodes(variables):
 
 
 def get_target_nodes(application_name, parameters, schema_items):
+    """
+
+    :param application_name:
+    :param parameters:
+    :param schema_items:
+    :return:
+    """
     nodes = []
     edges = []
     if parameters or schema_items:
@@ -460,6 +596,12 @@ def get_target_nodes(application_name, parameters, schema_items):
 
 
 def get_source_target_nodes(application_name, parameters):
+    """
+
+    :param application_name:
+    :param parameters:
+    :return:
+    """
     nodes = []
     edges = []
     if parameters:
@@ -479,6 +621,12 @@ def get_source_target_nodes(application_name, parameters):
 
 
 def get_source_nodes(application_name, schema_items):
+    """
+
+    :param application_name:
+    :param schema_items:
+    :return:
+    """
     nodes = []
     edges = []
     if schema_items:
@@ -492,44 +640,84 @@ def get_source_nodes(application_name, schema_items):
 
 
 def convert_connections_to_flow_edges(connections, script_nodes):
+    """
+
+    :param connections:
+    :param script_nodes:
+    :return:
+    """
     flow_edges = []
     if connections:
         for connection in connections:
             if "type" in connection and connection["type"] == "direct":
                 flow_edges.append(
-                    {"id": connection["id"], "source": connection["source"], "target": connection["target"],
-                     "type": "deleteEdge", "animated": True, "zIndex": 1})
+                    {
+                        "id": connection["id"],
+                        "source": connection["source"],
+                        "target": connection["target"],
+                        "type": "deleteEdge",
+                        "animated": True,
+                        "zIndex": 1,
+                    }
+                )
             elif "type" in connection and connection["type"] == "script":
-                script_node = [node for node in script_nodes if node["id"] == connection["id"]][0]
+                script_node = [
+                    node for node in script_nodes if node["id"] == connection["id"]
+                ][0]
                 flow_edges.append(
-                    {"id": script_node["data"]["source"], "source": connection["source"], "target": connection["id"],
-                     "type": "smoothstep", "animated": True, "zIndex": 1})
+                    {
+                        "id": script_node["data"]["source"],
+                        "source": connection["source"],
+                        "target": connection["id"],
+                        "type": "smoothstep",
+                        "animated": True,
+                        "zIndex": 1,
+                    }
+                )
                 flow_edges.append(
-                    {"id": script_node["data"]["target"], "source": connection["id"], "target": connection["target"],
-                     "type": "smoothstep", "animated": True, "zIndex": 1})
+                    {
+                        "id": script_node["data"]["target"],
+                        "source": connection["id"],
+                        "target": connection["target"],
+                        "type": "smoothstep",
+                        "animated": True,
+                        "zIndex": 1,
+                    }
+                )
     return flow_edges
 
 
 def generate_scripts(connections):
+    """
+
+    :param connections:
+    :return:
+    """
     script_nodes = []
     for connection in connections:
         if "type" in connection and connection["type"] == "script":
-            script_nodes.append({
-                "id": connection["id"],
-                "data": {
-                    "label": "Python Script Node",
-                    "type": "script",
-                    "source": str(objectid.ObjectId()),
-                    "target": str(objectid.ObjectId()),
-                },
-                "type": "targetNode",
-                "position": {
-                    "x": connection["scriptPosition"]["x"] if "scriptPosition" in connection else 400,
-                    "y": connection["scriptPosition"]["y"] if "scriptPosition" in connection else 400,
-                },
-                "targetPosition": "right",
-                "sourcePosition": "left",
-            })
+            script_nodes.append(
+                {
+                    "id": connection["id"],
+                    "data": {
+                        "label": "Python Script Node",
+                        "type": "script",
+                        "source": str(objectid.ObjectId()),
+                        "target": str(objectid.ObjectId()),
+                    },
+                    "type": "targetNode",
+                    "position": {
+                        "x": connection["scriptPosition"]["x"]
+                        if "scriptPosition" in connection
+                        else 400,
+                        "y": connection["scriptPosition"]["y"]
+                        if "scriptPosition" in connection
+                        else 400,
+                    },
+                    "targetPosition": "right",
+                    "sourcePosition": "left",
+                }
+            )
     return script_nodes
 
 
@@ -538,6 +726,12 @@ def generate_scripts(connections):
     methods=["GET"],
 )
 def get_low_level_flow(connection_id, mapping_id):
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :return:
+    """
     schema_mapping_table_format, _, _ = get_schema_mapping(connection_id, mapping_id)
     if schema_mapping_table_format.get_json()["success"]:
         schema_mapping_table_format = schema_mapping_table_format.get_json()
@@ -563,7 +757,9 @@ def get_low_level_flow(connection_id, mapping_id):
             jsonify(
                 {
                     "success": True,
-                    "connectionName": generate_connection_name(get_endpoint_mapping(connection_id, mapping_id)),
+                    "connectionName": generate_connection_name(
+                        get_endpoint_mapping(connection_id, mapping_id)
+                    ),
                     "targetNodes": target_nodes + source_target_nodes,
                     "targetEdges": target_edges + source_target_edges,
                     "sourceNodes": source_nodes,
@@ -571,7 +767,9 @@ def get_low_level_flow(connection_id, mapping_id):
                     "variableNodes": variable_nodes,
                     "variableEdges": variable_edges,
                     "scriptNodes": script_nodes,
-                    "edges": convert_connections_to_flow_edges(connections, script_nodes),
+                    "edges": convert_connections_to_flow_edges(
+                        connections, script_nodes
+                    ),
                 }
             ),
             200,
@@ -583,6 +781,12 @@ def get_low_level_flow(connection_id, mapping_id):
     "/api/schemamapping/flow/edge/<connection_id>/<mapping_id>", methods=["POST"]
 )
 def add_schema_mapping_connection(connection_id, mapping_id):
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :return:
+    """
     schema_element_config = request.get_json()
     new_connection = {
         "id": str(objectid.ObjectId()),
@@ -631,6 +835,13 @@ def add_schema_mapping_connection(connection_id, mapping_id):
     methods=["DELETE"],
 )
 def delete_schema_mapping_connection(connection_id, mapping_id, schema_mapping_id):
+    """
+
+    :param connection_id:
+    :param mapping_id:
+    :param schema_mapping_id:
+    :return:
+    """
     schema_config = get_endpoint_mapping(connection_id, mapping_id)
     if "schemaMapping" in schema_config:
         schema_index = next(
@@ -658,16 +869,32 @@ def delete_schema_mapping_connection(connection_id, mapping_id, schema_mapping_i
 
 
 def check_parameter_state(schema_mapping):
+    """
+
+    :param schema_mapping:
+    :return:
+    """
     incomplete_parameter_items = []
     if "schemaMapping" in schema_mapping and schema_mapping["schemaMapping"]:
         for connection in ["source", "target"]:
             if "parameterItems" in schema_mapping[connection]:
                 for parameter in schema_mapping[connection]["parameterItems"]:
                     if "required" in parameter and parameter["required"]:
-                        index = next((i for i, item in enumerate(schema_mapping["schemaMapping"]) if
-                                      item["source"] == parameter["id"] or item["target"] == parameter["id"]), None)
+                        index = next(
+                            (
+                                i
+                                for i, item in enumerate(
+                                    schema_mapping["schemaMapping"]
+                                )
+                                if item["source"] == parameter["id"]
+                                or item["target"] == parameter["id"]
+                            ),
+                            None,
+                        )
                         if index is None:
-                            incomplete_parameter_items.append((parameter["name"], connection + " parameter"))
+                            incomplete_parameter_items.append(
+                                (parameter["name"], connection + " parameter")
+                            )
         if incomplete_parameter_items:
             return False, incomplete_parameter_items
         else:
@@ -676,15 +903,27 @@ def check_parameter_state(schema_mapping):
         return False, []
 
 
-
 def check_low_level_state(endpoint_mapping):
+    """
+
+    :param endpoint_mapping:
+    :return:
+    """
     incomplete_glom_items = []
     glom_complete = False
     if endpoint_mapping["type"] == "glom":
-        glom_complete, incomplete_glom_items = MappingGenerator.check_glom_mapping_state(
-            jsonpickle.decode(endpoint_mapping["glomMapping"]), True)
-    parameter_complete, incomplete_parameter_items = check_parameter_state(endpoint_mapping)
-    if (endpoint_mapping["type"] == "glom" and not glom_complete) or not parameter_complete:
+        (
+            glom_complete,
+            incomplete_glom_items,
+        ) = MappingGenerator.check_glom_mapping_state(
+            jsonpickle.decode(endpoint_mapping["glomMapping"]), True
+        )
+    parameter_complete, incomplete_parameter_items = check_parameter_state(
+        endpoint_mapping
+    )
+    if (
+        endpoint_mapping["type"] == "glom" and not glom_complete
+    ) or not parameter_complete:
         return False, incomplete_glom_items + incomplete_parameter_items
     else:
         return True, []
@@ -695,42 +934,90 @@ def check_low_level_state(endpoint_mapping):
     methods=["GET"],
 )
 def save_mapping(connection_id, endpoint_mapping):
+    """
+
+    :param connection_id:
+    :param endpoint_mapping:
+    :return:
+    """
     endpoint_mapping = MappingGenerator.set_mapping_type(endpoint_mapping)
     if endpoint_mapping["type"] == "glom":
-        glom_mapping = MappingGenerator.generate_glom_mapping(connection_id, endpoint_mapping)
+        glom_mapping = MappingGenerator.generate_glom_mapping(
+            connection_id, endpoint_mapping
+        )
         if glom_mapping:
             endpoint_mapping["glomMapping"] = jsonpickle.encode(glom_mapping)
-            endpoint_mapping["complete"], endpoint_mapping["incompleteItems"] = check_low_level_state(endpoint_mapping)
-            success = update_endpoint_mapping(connection_id, endpoint_mapping["id"], endpoint_mapping)
+            (
+                endpoint_mapping["complete"],
+                endpoint_mapping["incompleteItems"],
+            ) = check_low_level_state(endpoint_mapping)
+            success = update_endpoint_mapping(
+                connection_id, endpoint_mapping["id"], endpoint_mapping
+            )
             return success
         else:
             endpoint_mapping["complete"] = False
-            success = update_endpoint_mapping(connection_id, endpoint_mapping["id"], endpoint_mapping)
+            success = update_endpoint_mapping(
+                connection_id, endpoint_mapping["id"], endpoint_mapping
+            )
             return success
     else:
-        endpoint_mapping["complete"], endpoint_mapping["incompleteItems"] = check_low_level_state(endpoint_mapping)
-        success = update_endpoint_mapping(connection_id, endpoint_mapping["id"], endpoint_mapping)
+        (
+            endpoint_mapping["complete"],
+            endpoint_mapping["incompleteItems"],
+        ) = check_low_level_state(endpoint_mapping)
+        success = update_endpoint_mapping(
+            connection_id, endpoint_mapping["id"], endpoint_mapping
+        )
         return success
 
 
 def save_mappings(connection_id):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    """
+
+    :param connection_id:
+    :return:
+    """
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if "endpointMapping" in connection_config and connection_config["endpointMapping"]:
         for endpoint_mapping in connection_config["endpointMapping"]:
             if not save_mapping(connection_id, endpoint_mapping):
-                print("Error in save_mappings(): saving failed, mapping id: " + endpoint_mapping["id"])
+                print(
+                    "Error in save_mappings(): saving failed, mapping id: "
+                    + endpoint_mapping["id"]
+                )
     return True
 
 
 def generate_connection_name(api):
+    """
+
+    :param api:
+    :return:
+    """
     if "path" not in api["source"]:
-        name = "Variables -> " + api["target"]["path"] + " (" + api["target"][
-            "operation"] + ")"
+        name = (
+            "Variables -> "
+            + api["target"]["path"]
+            + " ("
+            + api["target"]["operation"]
+            + ")"
+        )
     elif "path" not in api["target"]:
-        name = api["source"]["path"] + " (" + api["source"][
-            "operation"] + ") -> Variables"
+        name = (
+            api["source"]["path"] + " (" + api["source"]["operation"] + ") -> Variables"
+        )
     else:
-        name = api["source"]["path"] + " (" + api["source"][
-            "operation"] + ") -> " + api["target"]["path"] + " (" + api["target"][
-                   "operation"] + ")"
+        name = (
+            api["source"]["path"]
+            + " ("
+            + api["source"]["operation"]
+            + ") -> "
+            + api["target"]["path"]
+            + " ("
+            + api["target"]["operation"]
+            + ")"
+        )
     return name

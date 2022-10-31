@@ -1,7 +1,8 @@
 import json
 import re
 
-import networkx, jaro
+import jaro
+import networkx
 from nltk import word_tokenize
 from nltk.corpus import stopwords, wordnet
 
@@ -10,14 +11,17 @@ from nltk.corpus import stopwords, wordnet
 # is described in
 # "JSONGlue: A hybrid matcher for JSON schema matching" by Vitor Marini Blaselbauer & Jõao Marcelo Borovina Josko
 
+
 def compare_jaro_winkler(graph1, graph2, node1, node2):
-    distance = jaro.jaro_winkler_metric(graph1.nodes[node1]['name'], graph2.nodes[node2]['name'])
+    distance = jaro.jaro_winkler_metric(
+        graph1.nodes[node1]["name"], graph2.nodes[node2]["name"]
+    )
     return distance
 
 
 def compare_wu_palmer(graph1, graph2, node1, node2):
-    w1 = graph1.nodes[node1]['name']
-    w2 = graph2.nodes[node2]['name']
+    w1 = graph1.nodes[node1]["name"]
+    w2 = graph2.nodes[node2]["name"]
 
     lst1 = w1.split()
     lst2 = w2.split()
@@ -26,12 +30,12 @@ def compare_wu_palmer(graph1, graph2, node1, node2):
     len2 = len(lst2)
 
     if len1 == 0 or len2 == 0:
-        graph1.nodes[node1]['comp'] = None
-        graph2.nodes[node2]['comp'] = None
+        graph1.nodes[node1]["comp"] = None
+        graph2.nodes[node2]["comp"] = None
         return 1.0
     if len1 == 1 and len2 == 1:  # caso simples 1-1
-        graph1.nodes[node1]['comp'] = w1
-        graph2.nodes[node2]['comp'] = w2
+        graph1.nodes[node1]["comp"] = w1
+        graph2.nodes[node2]["comp"] = w2
         return find_best_synset(w1, w2)
     else:
         if len1 == 1 and len2 == 2:  # caso atr1 com 1 termo atr2 2 ou mais
@@ -44,25 +48,25 @@ def compare_wu_palmer(graph1, graph2, node1, node2):
             if ancnode == -1:
                 anc = w1
             else:
-                anc = graph1.nodes[ancnode]['name']
+                anc = graph1.nodes[ancnode]["name"]
             w11 = anc
             w12 = w1
             w21 = lst2[0]
             w22 = lst2[1]
             if w11 is None or w12 is None or w21 is None or w22 is None:
                 if w11 is None:
-                    w11 = ''
+                    w11 = ""
                 if w12 is None:
-                    w12 = ''
+                    w12 = ""
                 if w21 is None:
-                    w21 = ''
+                    w21 = ""
                 if w22 is None:
-                    w22 = ''
-                graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-                graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+                    w22 = ""
+                graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+                graph2.nodes[node2]["comp"] = " ".join([w21, w22])
                 return 1.0
-            graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-            graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+            graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+            graph2.nodes[node2]["comp"] = " ".join([w21, w22])
             return find_average_wu_palmer(w11, w12, w21, w22)
         elif len1 == 2 and len2 == 1:
             edges = graph2.edges
@@ -74,25 +78,25 @@ def compare_wu_palmer(graph1, graph2, node1, node2):
             if ancnode == -1:
                 anc = w2
             else:
-                anc = graph2.nodes[ancnode]['name']
+                anc = graph2.nodes[ancnode]["name"]
             w11 = lst1[0]
             w12 = lst1[1]
             w21 = anc
             w22 = w2
             if w11 is None or w12 is None or w21 is None or w22 is None:
                 if w11 is None:
-                    w11 = ''
+                    w11 = ""
                 if w12 is None:
-                    w12 = ''
+                    w12 = ""
                 if w21 is None:
-                    w21 = ''
+                    w21 = ""
                 if w22 is None:
-                    w22 = ''
-                graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-                graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+                    w22 = ""
+                graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+                graph2.nodes[node2]["comp"] = " ".join([w21, w22])
                 return 1.0
-            graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-            graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+            graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+            graph2.nodes[node2]["comp"] = " ".join([w21, w22])
             return find_average_wu_palmer(w11, w12, w21, w22)
         elif len1 == 2 and len2 == 2:
             w11 = lst1[0]
@@ -101,22 +105,22 @@ def compare_wu_palmer(graph1, graph2, node1, node2):
             w22 = lst2[1]
             if w11 is None or w12 is None or w21 is None or w22 is None:
                 if w11 is None:
-                    w11 = ''
+                    w11 = ""
                 if w12 is None:
-                    w12 = ''
+                    w12 = ""
                 if w21 is None:
-                    w21 = ''
+                    w21 = ""
                 if w22 is None:
-                    w22 = ''
-                graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-                graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+                    w22 = ""
+                graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+                graph2.nodes[node2]["comp"] = " ".join([w21, w22])
                 return 1.0
-            graph1.nodes[node1]['comp'] = ' '.join([w11, w12])
-            graph2.nodes[node2]['comp'] = ' '.join([w21, w22])
+            graph1.nodes[node1]["comp"] = " ".join([w11, w12])
+            graph2.nodes[node2]["comp"] = " ".join([w21, w22])
             return find_average_wu_palmer(w11, w12, w21, w22)
         else:
-            graph1.nodes[node1]['comp'] = None
-            graph2.nodes[node2]['comp'] = None
+            graph1.nodes[node1]["comp"] = None
+            graph2.nodes[node2]["comp"] = None
             return 1.0
 
 
@@ -166,12 +170,12 @@ def create_graph(jstring, i, lvl, node_number, graph=None):  # 1
         return_dict.update({node_number: [tmp, tmp_type, lvl]})  # Necessario ainda?
         node_number += 1
 
-        if tmp_type == 'array':  # 4
+        if tmp_type == "array":  # 4
             # print("searching....2 String: " + jstring)
             i = jstring.find('"items":{', i) + len('"items":{')  # 4
             # print("Found 2")
             tmp_type = find_type(jstring, i)[0]  # ja encontra o tipo
-            if tmp_type == 'object':
+            if tmp_type == "object":
                 i = jstring.find('"properties":{"', i) + len('"properties":{"')  # 6
                 array_edge = node_number - 1
                 lvl += 1
@@ -183,29 +187,31 @@ def create_graph(jstring, i, lvl, node_number, graph=None):  # 1
 
                     tmp += jstring[i:j]  # recebe o nome do item
                     tmp_type = find_type(jstring, i)[0]  # recebe o tipo do item
-                    graph.add_node(node_number, name=tmp, type=tmp_type, height=lvl)  # cria o nó
+                    graph.add_node(
+                        node_number, name=tmp, type=tmp_type, height=lvl
+                    )  # cria o nó
                     graph.add_edge(array_edge, node_number)
                     # return_dict.update({node_number : [tmp, tmp_type, lvl]}) acho q nao precisa?
                     node_number += 1  # incrementa o contador de nós
                     # print("searching....4 String: " + jstring)
-                    i = jstring.find('}', i)
+                    i = jstring.find("}", i)
                     # print("Found 4")
 
-                    if jstring[i + 1] == ',':  # teoricamente tratando corretamente
+                    if jstring[i + 1] == ",":  # teoricamente tratando corretamente
                         i += 3
                         continue
-                    elif jstring[i + 1] == '}':
+                    elif jstring[i + 1] == "}":
                         i += 1
                         # print("searching....5 String: " + jstring)
-                        i = jstring.find('}', i + 1)
+                        i = jstring.find("}", i + 1)
                         # print("Found 5")
 
                         break
                 lvl -= 1
             else:
-                i = jstring.find('}', i)
+                i = jstring.find("}", i)
 
-        elif tmp_type == 'object':  # 3
+        elif tmp_type == "object":  # 3
             retorno_t = create_graph(jstring, i, lvl + 1, node_number, graph)
             i = retorno_t[1]
             node_number = retorno_t[3]
@@ -215,17 +221,17 @@ def create_graph(jstring, i, lvl, node_number, graph=None):  # 1
                     graph.add_edge(node_base, key)
                     # print(value)
 
-        if jstring[i] == '}':
-            i = jstring.find('}', i + 1)
+        if jstring[i] == "}":
+            i = jstring.find("}", i + 1)
         else:
-            i = jstring.find('}', i)
+            i = jstring.find("}", i)
 
         if i + 1 == len(jstring):  # verificar se está chegando nesse caso
             break
-        elif jstring[i + 1] == ',':
+        elif jstring[i + 1] == ",":
             i += 3  # .find('"', i)
             continue
-        elif jstring[i + 1] == '}':
+        elif jstring[i + 1] == "}":
             i += 1
             break
         else:
@@ -259,7 +265,10 @@ def traverse_nodes_helper(json_schema):
                         name=item,
                     )
             elif node_type == "array" and "items" in start_node:
-                if "type" in start_node["items"] and start_node["items"]["type"] == "object":
+                if (
+                    "type" in start_node["items"]
+                    and start_node["items"]["type"] == "object"
+                ):
                     if "properties" in start_node["items"]:
                         for item in start_node["items"]["properties"].keys():
                             graph, node_counter = traverse_nodes(
@@ -267,9 +276,9 @@ def traverse_nodes_helper(json_schema):
                                 node_counter,
                                 graph,
                                 parent=parent,
-                            level=level + 1,
-                            name=item,
-                        )
+                                level=level + 1,
+                                name=item,
+                            )
         return graph, node_counter
 
     return traverse_nodes(json_schema, node_counter, graph)
@@ -282,10 +291,10 @@ def find_type(jstring, i):
 
 
 def remove_spaces(js):
-    ret = ''
+    ret = ""
     f = 1
     for i in js:
-        if (i == ' ' or i == '\n') and f == 1:
+        if (i == " " or i == "\n") and f == 1:
             continue
         elif i == '"':
             ret += i
@@ -299,23 +308,29 @@ def preprocess(in_str):
     if not isinstance(in_str, str):
         return None
     # Remove Special Char, Number....
-    clean_str = re.sub('[^A-Za-z]+', ' ', in_str.lower())
+    clean_str = re.sub("[^A-Za-z]+", " ", in_str.lower())
     # Remove additional space between words
-    clean_str = re.sub(' +', ' ', clean_str)
+    clean_str = re.sub(" +", " ", clean_str)
     # Extract Stop words
-    stop_words = set(stopwords.words('english'))
+    stop_words = set(stopwords.words("english"))
     # Extract Stop words
     tokens = word_tokenize(clean_str)
     str_list = [w for w in tokens if w not in stop_words]
-    return ' '.join(map(str, str_list))
+    return " ".join(map(str, str_list))
 
 
 def compare_graphs(graph1, graph2, node_number1, node_number2):
     results = {}
     for x in range(0, node_number1):
-        closest_matching_item = {"lexical": {"name": "", "value": float(1)}, "edit": {"name": "", "value": float(1)}}
+        closest_matching_item = {
+            "lexical": {"name": "", "value": float(1)},
+            "edit": {"name": "", "value": float(1)},
+        }
         for y in range(0, node_number2):
-            if graph1.nodes[x]['type'] == 'object' or graph2.nodes[y]['type'] == 'object':
+            if (
+                graph1.nodes[x]["type"] == "object"
+                or graph2.nodes[y]["type"] == "object"
+            ):
                 pass
             else:
                 edit = compare_jaro_winkler(graph1, graph2, x, y)
@@ -326,7 +341,7 @@ def compare_graphs(graph1, graph2, node_number1, node_number2):
                 if lexical < closest_matching_item["lexical"]["value"]:
                     closest_matching_item["lexical"]["value"] = lexical
                     closest_matching_item["lexical"]["name"] = graph2.nodes[y]["name"]
-        results[graph1.nodes[x]['name']] = closest_matching_item
+        results[graph1.nodes[x]["name"]] = closest_matching_item
 
     return results
 
@@ -336,7 +351,10 @@ def average_result(result):
     edit_total = sum(value["edit"]["value"] for key, value in result.items())
     lexical_total = sum(value["lexical"]["value"] for key, value in result.items())
     try:
-        return {"edit_average": (edit_total / dict_length), "lexical_average": (lexical_total / dict_length)}
+        return {
+            "edit_average": (edit_total / dict_length),
+            "lexical_average": (lexical_total / dict_length),
+        }
     except ZeroDivisionError:
         return {"edit_average": 1.0, "lexical_average": 1.0}
 
@@ -354,9 +372,14 @@ def calculate_json_glue_score(schema1, schema2):
         graphs_dict[schema] = graph[0]
         graphs_size[schema] = graph[1]
         for j in range(0, int(graphs_size[schema])):
-            graphs_dict[schema].nodes[j]['orig'] = graphs_dict[schema].nodes[j]['name']
-            tmp = preprocess(graphs_dict[schema].nodes[j]['name'])
+            graphs_dict[schema].nodes[j]["orig"] = graphs_dict[schema].nodes[j]["name"]
+            tmp = preprocess(graphs_dict[schema].nodes[j]["name"])
             names = tmp.split()
-            graphs_dict[schema].nodes[j]['name'] = ' '.join(names)
-    result = compare_graphs(graphs_dict["json1"], graphs_dict["json2"], graphs_size["json1"], graphs_size["json2"])
+            graphs_dict[schema].nodes[j]["name"] = " ".join(names)
+    result = compare_graphs(
+        graphs_dict["json1"],
+        graphs_dict["json2"],
+        graphs_size["json1"],
+        graphs_size["json2"],
+    )
     return average_result(result)

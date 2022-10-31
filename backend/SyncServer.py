@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 import traceback
@@ -25,6 +24,7 @@ sync_server_log.setLevel(logging.INFO)
 background_thread = None
 stop_thread = False
 clear_cache = True
+
 
 @server_config.route("/api/server/start/", methods=["GET"])
 def start_sync_server():
@@ -68,22 +68,20 @@ def start_sync_server():
                 {
                     "success": False,
                     "reason": "The connection does not contain any GET requests, making it impossible to sync the "
-                              "applications",
+                    "applications",
                 }
             ),
             500,
             {"ContentType": "application/json"},
         )
 
-    sync_server_log.info(
-        "Syncing the following applications: "
-    )
+    sync_server_log.info("Syncing the following applications: ")
     for application_id in connection_config["applicationIds"]:
-        sync_server_log.info(
-            application_configs[application_id]["name"]
-        )
+        sync_server_log.info(application_configs[application_id]["name"])
 
-    state, sdks = SyncServerHelpers.get_sdks_as_import(connection_config, application_configs)
+    state, sdks = SyncServerHelpers.get_sdks_as_import(
+        connection_config, application_configs
+    )
     if not state:
         return (
             jsonify({"success": False, "reason": "There was an error importing SDKs"}),
@@ -98,7 +96,8 @@ def start_sync_server():
             "=================== Started Sync Server ==================="
         )
         background_thread = Thread(
-            target=background_process, args=[connection_config, polling_interval, sdks, mapping_config]
+            target=background_process,
+            args=[connection_config, polling_interval, sdks, mapping_config],
         )
         background_thread.start()
         return jsonify({"success": True}), 200, {"ContentType": "application/json"}
@@ -182,11 +181,12 @@ def background_process(connection_config, polling_interval, sdks, mapping_config
     while not stop_thread:
         for endpoint in mapping_config:
             try:
-                SyncServerHelpers.find_call_type(connection_config, sdks, endpoint, polling_interval)
+                SyncServerHelpers.find_call_type(
+                    connection_config, sdks, endpoint, polling_interval
+                )
             except Exception as e:
                 sync_server_log.error("Unknown error: " + str(e))
-                sync_server_log.error(
-                    traceback.format_exc())
+                sync_server_log.error(traceback.format_exc())
                 stop_sync_server(emergency_stop=True)
                 break
         time.sleep(polling_interval)

@@ -1,8 +1,9 @@
 import json
 import random
 
-from flask import Blueprint, jsonify, request
 from bson import objectid
+from flask import Blueprint, jsonify, request
+
 import ConnectionConfig
 import ConnectionLowLevelFlow
 import ConnectionRecommendations

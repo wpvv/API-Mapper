@@ -1,17 +1,18 @@
 import importlib
-import inspect
-import json
 import re
 import sys
 import traceback
 from copy import deepcopy
 
 import pymongo
-import six
 from bson import ObjectId
 
-import ApplicationConfig, ConnectionConfig, clientSDK, SyncServer, SyncServerDataHandler, ConnectionVariable, \
-    MappingGenerator
+import ApplicationConfig
+import ConnectionConfig
+import ConnectionVariable
+import SyncServer
+import SyncServerDataHandler
+import clientSDK
 
 mongo_client = pymongo.MongoClient("mongodb://database:27017/")
 db = mongo_client["APIMapping"]
@@ -19,16 +20,19 @@ collection = db["cache"]
 
 
 def format_configs(connection_id):
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     application_configs = {}
     for application_id in connection_config["applicationIds"]:
-        application_configs[application_id] = ApplicationConfig.get_application_config(application_id, internal=True)
+        application_configs[application_id] = ApplicationConfig.get_application_config(
+            application_id, internal=True
+        )
     return connection_config, application_configs
 
 
 def convert_camelcase_to_snakecase(camelcase):
-    return re.sub('(?!^)([A-Z]+)', r'_\1',
-                  camelcase).lower()
+    return re.sub("(?!^)([A-Z]+)", r"_\1", camelcase).lower()
 
 
 def handle_sdk_state(connection_config, application_configs):
@@ -75,24 +79,25 @@ def get_mapping_config(connection_config, application_configs):
                     + connection["source"]["path"]
                 )
             else:
-                SyncServer.sync_server_log.info("Using variables to provide data to the target API")
+                SyncServer.sync_server_log.info(
+                    "Using variables to provide data to the target API"
+                )
             connection_copy = deepcopy(connection)
             for connection_end in ["source", "target"]:
                 if "applicationId" in connection[connection_end]:
                     connection_copy[connection_end]["type"] = "function"
                     if connection[connection_end]["serverOverride"] != "":
                         connection_copy[connection_end]["url"] = (
-                                connection[connection_end]["serverOverride"]
-                                + connection[connection_end]["path"]
+                            connection[connection_end]["serverOverride"]
+                            + connection[connection_end]["path"]
                         )
                     else:
                         try:
                             connection_copy[connection_end]["url"] = (
-                                    application_configs[connection[connection_end]["applicationId"]]["specs"][
-                                        "servers"][0][
-                                        "url"
-                                    ]
-                                    + connection[connection_end]["path"]
+                                application_configs[
+                                    connection[connection_end]["applicationId"]
+                                ]["specs"]["servers"][0]["url"]
+                                + connection[connection_end]["path"]
                             )
                         except KeyError:
                             SyncServer.sync_server_log.error(
@@ -100,17 +105,26 @@ def get_mapping_config(connection_config, application_configs):
                             )
                             SyncServer.stop_sync_server()
                     if connection[connection_end]["parameterItems"]:
-                        connection_copy[connection_end]["parameterItems"] = convert_parameters(
-                            connection[connection_end]["parameterItems"])
-                    connection_copy[connection_end]["sdkId"] = \
-                        application_configs[connection[connection_end]["applicationId"]]["sdkId"]
-                    connection_copy[connection_end]["function"] = get_endpoint_function_name(
+                        connection_copy[connection_end][
+                            "parameterItems"
+                        ] = convert_parameters(
+                            connection[connection_end]["parameterItems"]
+                        )
+                    connection_copy[connection_end]["sdkId"] = application_configs[
+                        connection[connection_end]["applicationId"]
+                    ]["sdkId"]
+                    connection_copy[connection_end][
+                        "function"
+                    ] = get_endpoint_function_name(
                         connection[connection_end]["path"],
                         connection[connection_end]["operation"],
                     )
                     connection_copy[connection_end].pop("path")
-                    connection_copy[connection_end]["apiInstanceConfig"] = generate_api_instance_configurations(
-                        application_configs[connection[connection_end]["applicationId"]])
+                    connection_copy[connection_end][
+                        "apiInstanceConfig"
+                    ] = generate_api_instance_configurations(
+                        application_configs[connection[connection_end]["applicationId"]]
+                    )
                 elif connection[connection_end]["label"] == "Variables":
                     connection_copy[connection_end]["type"] = "variables"
             mapping_config.append(connection_copy)
@@ -129,10 +143,15 @@ def get_mapping_config(connection_config, application_configs):
 def get_endpoint_function_name(endpoint_path, endpoint_operation):
     endpoint_function_name = endpoint_path
     endpoint_function_name = convert_camelcase_to_snakecase(
-        endpoint_function_name)  # convert any CamelCase to snake_case
+        endpoint_function_name
+    )  # convert any CamelCase to snake_case
     endpoint_function_name = endpoint_function_name.replace("/", "_")
-    endpoint_function_name = endpoint_function_name.replace("{", "")  # to filter for path variables
-    endpoint_function_name = endpoint_function_name.replace("}", "")  # to filter for path variables
+    endpoint_function_name = endpoint_function_name.replace(
+        "{", ""
+    )  # to filter for path variables
+    endpoint_function_name = endpoint_function_name.replace(
+        "}", ""
+    )  # to filter for path variables
     if not endpoint_function_name.endswith("_"):
         endpoint_function_name += "_"
     endpoint_function_name += endpoint_operation
@@ -147,10 +166,10 @@ def get_sdks_as_import(connection_config, application_configs):
     sdk = {}
     for application_id in connection_config["applicationIds"]:
         if (
-                "sdkGenerated" in application_configs[application_id]
-                and application_configs[application_id]["sdkGenerated"]
-                and "sdkId" in application_configs[application_id]
-                and application_configs[application_id]["sdkId"] != ""
+            "sdkGenerated" in application_configs[application_id]
+            and application_configs[application_id]["sdkGenerated"]
+            and "sdkId" in application_configs[application_id]
+            and application_configs[application_id]["sdkId"] != ""
         ):
 
             try:
@@ -187,23 +206,23 @@ def generate_auth(application_config, api_object, config_object):
         for key, value in application_config["headerItems"].items():
             config_object.api_key[key] = value
     if "basicUsername" in application_config and "basicPassword" in application_config:
-        config_object = api_object.Configuration(username=application_config["basicUsername"],
-                                                 password=application_config["basicPassword"])
+        config_object = api_object.Configuration(
+            username=application_config["basicUsername"],
+            password=application_config["basicPassword"],
+        )
     return config_object
 
 
 def generate_api_instance_configurations(application_config):
     if (
-            "sdkGenerated" in application_config
-            and application_config["sdkGenerated"]
-            and "sdkId" in application_config
-            and application_config["sdkId"] != ""
+        "sdkGenerated" in application_config
+        and application_config["sdkGenerated"]
+        and "sdkId" in application_config
+        and application_config["sdkId"] != ""
     ):
         try:
             sys.path.append("generated_clients")
-            api_object = importlib.import_module(
-                application_config["sdkId"]
-            )
+            api_object = importlib.import_module(application_config["sdkId"])
             config_object = api_object.Configuration()
         except ImportError as e:
             SyncServer.sync_server_log.error(
@@ -222,7 +241,11 @@ def get_api_instance(current_sdk, endpoint, endpoint_end):
         return current_sdk.DefaultApi(endpoint[endpoint_end]["apiInstanceConfig"])
     except Exception as e:
         SyncServer.sync_server_log.error(
-            "Error while importing SDK to call: " + endpoint[endpoint_end]["url"] + ", error:" + str(e))
+            "Error while importing SDK to call: "
+            + endpoint[endpoint_end]["url"]
+            + ", error:"
+            + str(e)
+        )
     SyncServer.stop_sync_server(emergency_stop=True)
     return
 
@@ -231,41 +254,64 @@ def find_call_type(connection_config, sdks, endpoint, polling_interval):
     if endpoint["source"]["type"] == "function":
         source_response = call_endpoint(connection_config, sdks, endpoint, "source")
     elif endpoint["source"]["type"] == "variables":
-        source_response = ConnectionVariable.get_variables_for_glom(connection_config["id"])
+        source_response = ConnectionVariable.get_variables_for_glom(
+            connection_config["id"]
+        )
     elif endpoint["source"]["type"] == "script":
         print("TBD")
     else:
         SyncServer.sync_server_log.error(
-            "Unknown type: either function or variable is allowed, given type:" + endpoint["source"][
-                "type"])
+            "Unknown type: either function or variable is allowed, given type:"
+            + endpoint["source"]["type"]
+        )
         SyncServer.stop_sync_server(emergency_stop=True)
         return
     if check_for_changes(source_response, endpoint, polling_interval):
-        if endpoint["target"]["type"] == "function" or endpoint["target"]["type"] == "script":
-            target_response = call_endpoint(connection_config, sdks, endpoint, "target", source_response)
+        if (
+            endpoint["target"]["type"] == "function"
+            or endpoint["target"]["type"] == "script"
+        ):
+            target_response = call_endpoint(
+                connection_config, sdks, endpoint, "target", source_response
+            )
         elif endpoint["target"]["type"] == "variables":
-            SyncServerDataHandler.set_variables(connection_config, endpoint, source_response)
+            SyncServerDataHandler.set_variables(
+                connection_config, endpoint, source_response
+            )
         else:
             SyncServer.sync_server_log.error(
-                "Unknown type: either function or variable is allowed, given type:" + endpoint["target"][
-                    "type"])
+                "Unknown type: either function or variable is allowed, given type:"
+                + endpoint["target"]["type"]
+            )
             return
 
 
-def call_endpoint(connection_config, sdks, endpoint, endpoint_end, source_response=None, reponse=None):
+def call_endpoint(
+    connection_config, sdks, endpoint, endpoint_end, source_response=None, reponse=None
+):
     current_sdk = sdks[endpoint[endpoint_end]["sdkId"]]
-    if endpoint_end == "source" or (endpoint_end == "target" and source_response is not None):
+    if endpoint_end == "source" or (
+        endpoint_end == "target" and source_response is not None
+    ):
         try:
             api_instance = get_api_instance(current_sdk, endpoint, endpoint_end)
-            kwargs = SyncServerDataHandler.generate_calling_kwargs(api_instance, connection_config, endpoint,
-                                                                   endpoint_end, source_response)
+            kwargs = SyncServerDataHandler.generate_calling_kwargs(
+                api_instance, connection_config, endpoint, endpoint_end, source_response
+            )
             if endpoint_end == "source":
                 SyncServer.sync_server_log.info(
-                    "Calling: " + SyncServerDataHandler.get_url_with_parameters(endpoint[endpoint_end]["url"], kwargs))
+                    "Calling: "
+                    + SyncServerDataHandler.get_url_with_parameters(
+                        endpoint[endpoint_end]["url"], kwargs
+                    )
+                )
             else:
                 SyncServer.sync_server_log.info(
-                    "Sending data to: " + SyncServerDataHandler.get_url_with_parameters(endpoint["target"]["url"],
-                                                                                        kwargs))
+                    "Sending data to: "
+                    + SyncServerDataHandler.get_url_with_parameters(
+                        endpoint["target"]["url"], kwargs
+                    )
+                )
             target_api = getattr(api_instance, endpoint[endpoint_end]["function"])
             if kwargs:
                 # print("Using data: ", kwargs)
@@ -294,9 +340,9 @@ def call_endpoint(connection_config, sdks, endpoint, endpoint_end, source_respon
 
         except Exception as e:
             SyncServer.sync_server_log.error(
-                "Unknown error: " + endpoint[endpoint_end]["url"] + ", error:" + str(e))
-            SyncServer.sync_server_log.error(
-                traceback.format_exc())
+                "Unknown error: " + endpoint[endpoint_end]["url"] + ", error:" + str(e)
+            )
+            SyncServer.sync_server_log.error(traceback.format_exc())
             SyncServer.stop_sync_server(emergency_stop=True)
             return
     else:
@@ -304,7 +350,9 @@ def call_endpoint(connection_config, sdks, endpoint, endpoint_end, source_respon
             "Error while calling the following API endpoint: "
             + endpoint[endpoint_end]["url"]
         )
-        SyncServer.sync_server_log.error("Source response was not given but is required")
+        SyncServer.sync_server_log.error(
+            "Source response was not given but is required"
+        )
         SyncServer.stop_sync_server(emergency_stop=True)
         return
 
@@ -327,12 +375,17 @@ def check_for_changes(response, endpoint, polling_interval):
         if cached_result["response"] == response:
             if endpoint["source"]["type"] == "function":
                 SyncServer.sync_server_log.info(
-                    "Nothing changed on endpoint: " + endpoint["source"][
-                        "url"] + ", waiting " + str(polling_interval) + " seconds to check again"
+                    "Nothing changed on endpoint: "
+                    + endpoint["source"]["url"]
+                    + ", waiting "
+                    + str(polling_interval)
+                    + " seconds to check again"
                 )
             elif endpoint["source"]["type"] == "variables":
                 SyncServer.sync_server_log.info(
-                    "Values of variables did not change, waiting " + str(polling_interval) + " seconds to check again"
+                    "Values of variables did not change, waiting "
+                    + str(polling_interval)
+                    + " seconds to check again"
                 )
             return False
 
@@ -342,9 +395,7 @@ def check_for_changes(response, endpoint, polling_interval):
                     "Changes found on endpoint: " + endpoint["source"]["url"]
                 )
             elif endpoint["source"]["type"] == "variables":
-                SyncServer.sync_server_log.info(
-                    "Values of variables changed"
-                )
+                SyncServer.sync_server_log.info("Values of variables changed")
             updated = collection.update_one(
                 {"_id": cache_id}, {"$set": {"data": response}}
             )

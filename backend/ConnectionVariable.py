@@ -29,7 +29,9 @@ def get_variables(connection_id: str, internal: bool = False) -> list | tuple:
     :param connection_id: Mongodb id of connection given as a string
     :return: an JSON object containing the variables
     """
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if "variables" in connection_config:
         variables = connection_config["variables"]
         for variable in variables:
@@ -61,7 +63,7 @@ def get_variables(connection_id: str, internal: bool = False) -> list | tuple:
 
 
 def get_variables_for_glom(connection_id: str) -> dict:
-    """ Function to convert variables to GLOM format
+    """Function to convert variables to GLOM format
 
     :param connection_id: Mongodb id of connection given as a string
     :return: dict with all variables
@@ -73,9 +75,7 @@ def get_variables_for_glom(connection_id: str) -> dict:
     return variables_dict
 
 
-@connection_variable.route(
-    "/api/connection/variable/<connection_id>", methods=["POST"]
-)
+@connection_variable.route("/api/connection/variable/<connection_id>", methods=["POST"])
 def add_variable(connection_id: str) -> tuple:
     """Returns state after adding a variable to the connection
 
@@ -83,7 +83,9 @@ def add_variable(connection_id: str) -> tuple:
     :param connection_id: Mongodb id of connection given as a string
     :return: an JSON object if updating of the variable was successful
     """
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     variable = request.get_json()
     variable["id"] = str(objectid.ObjectId())
     state, value = convert_value_to_correct_data_type(variable["value"])
@@ -126,7 +128,9 @@ def delete_variable(connection_id: str, variable_id: str) -> tuple:
     :param connection_id: Mongodb id of connection given as a string
     :return: an JSON object if updating of the variable was successful
     """
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     variable_index = next(
         (
             index
@@ -160,10 +164,10 @@ def delete_variable(connection_id: str, variable_id: str) -> tuple:
     )
 
 
-@connection_variable.route(
-    "/api/connection/variable/<connection_id>", methods=["PUT"]
-)
-def update_variable(connection_id: str, variable: dict = None, internal: bool = False) -> bool | tuple:
+@connection_variable.route("/api/connection/variable/<connection_id>", methods=["PUT"])
+def update_variable(
+    connection_id: str, variable: dict = None, internal: bool = False
+) -> bool | tuple:
     """Returns state after updating a variable
 
     This function updates the connection config with the newly updated variable.
@@ -172,7 +176,9 @@ def update_variable(connection_id: str, variable: dict = None, internal: bool = 
     :param connection_id: Mongodb id of connection given as a string
     :return: an JSON object if updating of the variable was successful
     """
-    connection_config = ConnectionConfig.get_connection_config(connection_id, internal=True, flow=False)
+    connection_config = ConnectionConfig.get_connection_config(
+        connection_id, internal=True, flow=False
+    )
     if not internal:
         variable = request.get_json()
     state, value = convert_value_to_correct_data_type(variable["value"])
@@ -242,7 +248,7 @@ def get_variable_sources(connection_id: str) -> list:
 
 
 def convert_value_to_correct_data_type(value: any) -> tuple[bool, str]:
-    """ Returns the value after casting it to the correct type
+    """Returns the value after casting it to the correct type
 
     Because the type of the variable cannot be set in the frontend, all will be set to a string. In order to have the
     correct type in the saved this function will detect the type and cast it to that type and return it.
@@ -256,23 +262,29 @@ def convert_value_to_correct_data_type(value: any) -> tuple[bool, str]:
     except ValueError:
         try:
             return True, ast.literal_eval(
-                "\"" + value + "\"")  # value error is often raised when a string contains spaces, extra quotes
+                '"' + value + '"'
+            )  # value error is often raised when a string contains spaces, extra quotes
             # mitigates this, but cannot initially be added because of dicts
         except Exception as e:
-            print("Error in ConnectionVariable.convert_value_to_correct_data_type():", e)
+            print(
+                "Error in ConnectionVariable.convert_value_to_correct_data_type():", e
+            )
             return False, ""
     except SyntaxError as e:
         try:
             return True, ast.literal_eval(
-                "\"" + value + "\"")  # value error is often raised when a string begins with a couple of integers,
+                '"' + value + '"'
+            )  # value error is often raised when a string begins with a couple of integers,
             # extra quotes mitigates this, but cannot initially be added because of dicts
         except Exception as e:
-            print("Error in ConnectionVariable.convert_value_to_correct_data_type():", e)
+            print(
+                "Error in ConnectionVariable.convert_value_to_correct_data_type():", e
+            )
             return False, ""
 
 
 def get_variable(connection_id: str, variable_id: str) -> dict:
-    """ Function to get a specific variable
+    """Function to get a specific variable
 
     :param connection_id: Mongodb id of connection given as a string
     :param variable_id: identifier for variable

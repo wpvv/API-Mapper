@@ -36,8 +36,9 @@ def find_api_type_without_header(response: requests.Response):
         return False, ""
 
 
-def find_api_type_with_header(header: requests.structures.CaseInsensitiveDict[str], response: requests.Response) -> \
-        tuple[bool, str]:
+def find_api_type_with_header(
+    header: requests.structures.CaseInsensitiveDict[str], response: requests.Response
+) -> tuple[bool, str]:
     """Returns False if API type is not found, true and the type if type is found
 
     This function uses the header of a response of an API call to determine if the API is valid and either JSON or XML.
@@ -99,8 +100,9 @@ def find_api_type(url: str) -> tuple[bool, str]:
         return False, ""
 
 
-def parse_openapi(url: str = None, specs: dict = None, deref: bool = True) -> \
-        tuple[bool, str] | tuple[bool, ResolvingParser] | tuple[bool, BaseParser]:
+def parse_openapi(
+    url: str = None, specs: dict = None, deref: bool = True
+) -> tuple[bool, str] | tuple[bool, ResolvingParser] | tuple[bool, BaseParser]:
     """Returns if the given OpenAPI specification is valid and could be parsed, if parsable it returns the parsed specs
 
     This function tries to parse the given OpenAPI document. The document can be delivered either as an url or as a
@@ -119,9 +121,13 @@ def parse_openapi(url: str = None, specs: dict = None, deref: bool = True) -> \
                 return True, BaseParser(url, backend="openapi-spec-validator")
         elif specs is not None:
             if deref:
-                return True, ResolvingParser(spec_string=str(specs), backend="openapi-spec-validator")
+                return True, ResolvingParser(
+                    spec_string=str(specs), backend="openapi-spec-validator"
+                )
             else:
-                return True, BaseParser(spec_string=str(specs), backend="openapi-spec-validator")
+                return True, BaseParser(
+                    spec_string=str(specs), backend="openapi-spec-validator"
+                )
         else:
             return False, ""
     except ValidationError as e:
@@ -421,7 +427,11 @@ def detect_null_value(data: dict) -> None:
     if "type" in data and data["type"] == "null":
         data["nullable"] = True
         data.pop("type")
-    if "type" in data and isinstance(data["type"], list) and data["type"].count("null") == 1:
+    if (
+        "type" in data
+        and isinstance(data["type"], list)
+        and data["type"].count("null") == 1
+    ):
         data["type"].remove("null")
         data["type"] = data["type"][0]
 
@@ -583,7 +593,8 @@ def resolve_refs(specs: str) -> tuple[bool, str]:
     """
     try:
         resolved_refs_specs = ResolvingParser(
-            spec_string=specs, backend="openapi-spec-validator",
+            spec_string=specs,
+            backend="openapi-spec-validator",
         )
         return True, resolved_refs_specs.specification
     except ValidationError as e:

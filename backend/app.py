@@ -3,11 +3,11 @@ from flask import Flask, jsonify
 
 from ApplicationConfig import application_config
 from ConnectionConfig import connection_config
-from SyncServer import server_config, get_state_sync_server
 from ConnectionHighLevelFlow import connection_high_level_flow
 from ConnectionLowLevelFlow import connection_low_level_flow
-from ConnectionVariable import connection_variable
 from ConnectionScript import connection_script
+from ConnectionVariable import connection_variable
+from SyncServer import server_config, get_state_sync_server
 
 mongo_client = pymongo.MongoClient("mongodb://database:27017/")
 db = mongo_client["APIMapping"]
