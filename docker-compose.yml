@@ -20,16 +20,13 @@ services:
     
   backend:
     build:
-      context: "./backend"
       dockerfile: "Dockerfile.backend"
     restart: always
     container_name: backend
     networks:
       - APIMapping
     volumes:
-      - ./backend:/app
-    command: >
-     sh -c "flask run --host=0.0.0.0 --no-debugger"
+      - ./backend:/app/backend
     ports:
       - 5000:5000
     depends_on:
@@ -50,7 +47,7 @@ services:
       - /var/log/mongodb/mongod.log
 
   codegen:
-    image: openapitools/openapi-generator-online:latest
+    image: openapitools/openapi-generator-online:v6.1.0
     container_name: codegenerator
     networks:
       - APIMapping

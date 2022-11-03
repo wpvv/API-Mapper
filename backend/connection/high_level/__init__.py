@@ -1,0 +1,8 @@
+from flask import Blueprint
+
+from backend.connection.high_level.DataHandler import connection_high_level_data_handler
+from backend.connection.high_level.Flow import connection_high_level_flow
+
+connection_high_level = Blueprint("ConnectionHighLevel", __name__)
+connection_high_level.register_blueprint(connection_high_level_data_handler)
+connection_high_level.register_blueprint(connection_high_level_flow)

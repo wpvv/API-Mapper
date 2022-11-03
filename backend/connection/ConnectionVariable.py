@@ -1,22 +1,13 @@
 import ast
 
-import pymongo
 from bson import objectid
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request, Blueprint
 
-import ConnectionConfig
-import DataTypeUtils
+from backend.connection import ConnectionConfig, DataTypeUtils
 
-connection_variable = Blueprint(
-    "ConnectionVariable", __name__, template_folder="templates"
-)
+connection_variable = Blueprint("ConnectionVariable", __name__)
 
-mongo_client = pymongo.MongoClient("mongodb://database:27017/")
-
-
-@connection_variable.route(
-    "/api/connection/get/variables/<connection_id>", methods=["GET"]
-)
+@connection_variable.route("/api/connection/get/variables/<connection_id>", methods=["GET"])
 def get_variables(connection_id: str, internal: bool = False) -> list | tuple:
     """Returns all the variables for this connection
 

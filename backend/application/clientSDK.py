@@ -8,7 +8,7 @@ import zipfile
 
 import requests
 
-import ApplicationConfig
+from backend.application import ApplicationConfig
 
 
 def generate_sdk(application_id: str) -> bool:
@@ -40,7 +40,7 @@ def generate_sdk(application_id: str) -> bool:
     if "link" in response_dict:
         url = response_dict["link"]
         response_sdk = requests.get(url)
-        file_path = "./generated_clients/"
+        file_path = "backend/generated_clients/"
         tmp = tempfile.NamedTemporaryFile()
         try:
             tmp.write(response_sdk.content)
@@ -87,7 +87,7 @@ def delete_sdk(application_id: str) -> bool:
     :return: bool if deletion of the sdk was successful
     """
     config = ApplicationConfig.get_application_config(application_id, internal=True)
-    sdk_path = "./generated_clients/" + config["sdkId"]
+    sdk_path = "backend/generated_clients/" + config["sdkId"]
     if "sdkGenerated" in config and config["sdkGenerated"]:
         try:
             shutil.rmtree(sdk_path)
@@ -140,7 +140,7 @@ def double_check_sdk(application_id: str) -> bool:
     config = ApplicationConfig.get_application_config(application_id, internal=True)
     if "sdkGenerated" in config:
         if config["sdkGenerated"]:
-            sdk_path = "./generated_clients/" + config["sdkId"]
+            sdk_path = "backend/generated_clients/" + config["sdkId"]
             if os.path.exists(sdk_path):
                 return True
             else:

@@ -1,5 +1,6 @@
 import itertools
 import json
+import os
 import re
 
 import joblib
@@ -16,9 +17,8 @@ from pandarallel import pandarallel
 from sentence_transformers import SentenceTransformer
 from sklearn import model_selection, feature_selection, linear_model, ensemble, metrics
 
-import ApplicationConfig
-import ConnectionConfig
-import JsonGlue
+from backend.application import ApplicationConfig
+from backend.connection import JsonGlue, ConnectionConfig
 
 abbreviations = {
     "id": "identifier",
@@ -326,7 +326,7 @@ def create_data_set(application_ids=None, training=False):
     data_set.drop(["supported_connection", "label"], axis=1, inplace=True)
     data_set = data_set.set_index("name")
     if training:
-        data_set.to_csv("data/gradient_boosting/chat.csv")
+        data_set.to_csv("backend/data/gradient_boosting/chat.csv")
         print("Data set written to data/gradient_boosting/chat.csv")
     return data_set
 
@@ -411,7 +411,7 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
     sns.heatmap(matrix, annot=True, cmap="YlGnBu", cbar=True, linewidths=0.5)
     plt.title("Correlation Matrix")
 
-    plt.savefig("data/correlation.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/correlation.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     feature_names = train_data.drop("label", axis=1).columns
@@ -453,7 +453,7 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
         dodge=False,
     )
     plt.title("Lasso regularization")
-    plt.savefig("data/lasso_reg.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/lasso_reg.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     feature_names = train_data.drop("label", axis=1).columns.tolist()
@@ -504,7 +504,7 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
 
     plt.grid(axis="both")
     plt.tight_layout()
-    plt.savefig("data/importance.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/importance.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
 
@@ -539,7 +539,7 @@ def create_model_graphs(
     sns.heatmap(cm, annot=True, fmt="d", cmap=plt.cm.Blues, cbar=False)
     ax.set(xlabel="Predicted", ylabel="True", title="Confusion matrix")
     ax.set_yticklabels(labels=classes, rotation=0)
-    plt.savefig("data/confusion.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/confusion.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     fig, ax = plt.subplots(nrows=1, ncols=2)  # plot ROC curve
@@ -626,7 +626,7 @@ def create_model_graphs(
                 va="bottom",
             )
             threshold.append(t)
-    plt.savefig("data/pr_curves.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/pr_curves.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     dic_scores = {
@@ -647,7 +647,7 @@ def create_model_graphs(
     dtf_scores = pd.DataFrame(dic_scores)
     dtf_scores = dtf_scores.set_index("threshold")
     dtf_scores.plot(title="Threshold Selection", ylabel="Scores")
-    plt.savefig("data/threshold.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/threshold.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
 
@@ -730,7 +730,7 @@ def create_model(
     predicted_prob = model.predict_proba(x_test)[:, 1]
     predicted = (model.predict_proba(x_test)[:, 1] >= 0.9).astype(bool)
     data_set["label_predicted"] = model.predict(data_set.drop("label", axis=1).values)
-    data_set.to_csv("data/chat_labeled_predicted.csv")
+    data_set.to_csv("backend/data/chat_labeled_predicted.csv")
     print("predicted data written to data/chat_labeled_predicted.csv")
     recall = metrics.recall_score(y_test, predicted)
     precision = metrics.precision_score(y_test, predicted)
@@ -757,7 +757,7 @@ def create_model(
             precision,
         )
     if save_model:
-        files = joblib.dump(model, "data/boostinggradient.joblib")
+        files = joblib.dump(model, "backend/data/boostinggradient.joblib")
         print("Model is written to:" + str(files))
     return model
 
@@ -770,10 +770,12 @@ def make_prediction(application_ids: list) -> dict:
     :param application_ids: list of application ids
     :return: a dict containing the connections that recommended
     """
+    print(os.listdir())
     data = create_data_set(application_ids, training=False)
     try:
-        model = joblib.load("data/boostinggradient.joblib")
+        model = joblib.load("backend/data/boostinggradient.joblib")
     except FileNotFoundError:
+        print("model not found")
         data_set, train_data, test_data = read_training_data_set(make_graphs=True)
         model = create_model(
             data_set, train_data, test_data, make_graphs=True, save_model=True

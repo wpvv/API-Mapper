@@ -1,22 +1,16 @@
 import json
 
-import pymongo
 import requests
 import validators
 from bson.objectid import ObjectId
 from flask import jsonify, request, Blueprint
 from requests.auth import HTTPBasicAuth
 
-import ConnectionConfig
-import clientSDK
-import openAPI
+from backend import db
+from backend.application import clientSDK, openAPI
+from backend.connection import ConnectionConfig
 
-application_config = Blueprint(
-    "ApplicationConfig", __name__, template_folder="templates"
-)
-
-mongo_client = pymongo.MongoClient("mongodb://database:27017/")
-db = mongo_client["APIMapping"]
+application_config = Blueprint("ApplicationConfig", __name__)
 collection = db["applications"]
 
 
@@ -328,9 +322,7 @@ def delete_application_config(application_id: str) -> tuple:
         }
 
 
-@application_config.route(
-    "/api/application/auth/save/<application_id>", methods=["POST"]
-)
+@application_config.route("/api/application/auth/save/<application_id>", methods=["POST"])
 def save_application_auth(application_id: str) -> tuple:
     """Returns the application id after getting and saving the authentication type and configuration
 
@@ -401,9 +393,7 @@ def save_application_auth(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/endpoint/crawl/<application_id>", methods=["POST"]
-)
+@application_config.route("/api/application/endpoint/crawl/<application_id>", methods=["POST"])
 def crawl_application_endpoint(application_id: str) -> tuple:
     """Returns a response from teh crawled API endpoint
 
@@ -528,9 +518,7 @@ def crawl_application_endpoint(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/endpoint/spec/<application_id>", methods=["POST"]
-)
+@application_config.route("/api/application/endpoint/spec/<application_id>", methods=["POST"])
 def generate_spec(application_id: str) -> tuple:
     """Returns generated OpenAPI specs to show in the frontend Swagger UI
 
@@ -562,9 +550,7 @@ def generate_spec(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/endpoint/save/<application_id>", methods=["POST"]
-)
+@application_config.route("/api/application/endpoint/save/<application_id>", methods=["POST"])
 def save_endpoints(application_id: str) -> tuple:
     """Returns success or an error when generating and saving an OpenAPI specs document
 
@@ -609,9 +595,7 @@ def save_endpoints(application_id: str) -> tuple:
         )
 
 
-@application_config.route(
-    "/api/application/sdk/generate/<application_id>", methods=["GET"]
-)
+@application_config.route("/api/application/sdk/generate/<application_id>", methods=["GET"])
 def generate_sdk(application_id: str) -> tuple:
     """Returns status after requesting, downloading and unzipping an application sdk
 

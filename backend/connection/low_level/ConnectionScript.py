@@ -1,21 +1,21 @@
 import base64
 import os
 
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request, Blueprint
 
-import ConnectionConfig
-import ConnectionLowLevelFlow
-import ConnectionVariable
-import MappingGenerator
+from backend.connection import ConnectionConfig, ConnectionVariable
+from backend.connection.low_level.MappingGenerator import find_schema_item
+from backend.connection.low_level.table import DataHandler as LowLevelTable
 
-connection_script = Blueprint("ConnectionScript", __name__, template_folder="templates")
+connection_low_level_script = Blueprint("ConnectionLowLevelScript", __name__)
 
-
-@connection_script.route(
+@connection_low_level_script.route(
     "/api/connection/script/<connection_id>/<mapping_id>/<script_id>", methods=["GET"]
 )
-def get_script(connection_id: str, mapping_id: str, script_id: str, internal: bool = False) -> None | dict | tuple :
-    """ Function to get the get and read the script from the connection_scripts folder.
+def get_script(
+    connection_id: str, mapping_id: str, script_id: str, internal: bool = False
+) -> None | dict | tuple:
+    """Function to get the get and read the script from the connection_scripts folder.
 
     :param connection_id: unique identifier of the connection between applications
     :param mapping_id: unique identifier of the connection between API endpoints
@@ -23,16 +23,15 @@ def get_script(connection_id: str, mapping_id: str, script_id: str, internal: bo
     :param internal: boolean to determine the return type
     :return: either a base64 encoded Python script or a Flask response containing the base64 Python script
     """
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     if "schemaMapping" in schema_config:
         script_config = [
             mapping
             for mapping in schema_config["schemaMapping"]
             if mapping["id"] == script_id
-               and "type" in mapping
-               and mapping["type"] == "script"][0]
+            and "type" in mapping
+            and mapping["type"] == "script"
+        ][0]
         if not script_config:
             if internal:
                 return None
@@ -49,7 +48,7 @@ def get_script(connection_id: str, mapping_id: str, script_id: str, internal: bo
                 )
         else:
             with open(
-                    "connection_scripts/" + script_id + ".py", encoding="utf-8"
+                "backend/connection_scripts/" + script_id + ".py", encoding="utf-8"
             ) as file:
                 contents = file.read().encode("ascii")
                 contents = base64.b64encode(contents)  # bytes
@@ -80,11 +79,11 @@ def get_script(connection_id: str, mapping_id: str, script_id: str, internal: bo
             )
 
 
-@connection_script.route(
+@connection_low_level_script.route(
     "/api/connection/script/<connection_id>/<mapping_id>/<script_id>", methods=["POST"]
 )
 def add_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
-    """ Function to write a new script and add skeleton Python code
+    """Function to write a new script and add skeleton Python code
 
     :param connection_id: unique identifier of the connection between applications
     :param mapping_id: unique identifier of the connection between API endpoints
@@ -99,19 +98,17 @@ def add_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
         "type": "script",
         "scriptPosition": script_element_config["position"],
     }
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     if schema_config:
         if "schemaMapping" not in schema_config:
             schema_config["schemaMapping"] = []
         schema_config["schemaMapping"].append(new_connection)
-        success = ConnectionLowLevelFlow.update_endpoint_mapping(
+        success = LowLevelTable.update_endpoint_mapping(
             connection_id, mapping_id, schema_config
         )
         if success:
             with open(
-                    "connection_scripts/" + script_id + ".py", encoding="utf-8", mode="a"
+                "backend/connection_scripts/" + script_id + ".py", encoding="utf-8", mode="a"
             ) as file:
                 file.write(
                     "def main("
@@ -155,11 +152,11 @@ def add_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
         )
 
 
-@connection_script.route(
+@connection_low_level_script.route(
     "/api/connection/script/<connection_id>/<mapping_id>/<script_id>", methods=["PUT"]
 )
 def update_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
-    """ Function to update an existing script
+    """Function to update an existing script
 
     This function take a base64 encoded scripts, converts it and updates an existing script, it also saves and updates
     the position of the script node, representing a Python script, from the Low Level Mapping interface.
@@ -170,9 +167,7 @@ def update_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
     :return: a Flask response if the script is updated
     """
     script_node = request.get_json()
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     if "schemaMapping" in schema_config:
         schema_index = next(
             (
@@ -197,17 +192,17 @@ def update_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
             schema_config["schemaMapping"][schema_index][
                 "scriptPosition"
             ] = script_node["position"]
-            if ConnectionLowLevelFlow.update_endpoint_mapping(
-                    connection_id, mapping_id, schema_config
+            if LowLevelTable.update_endpoint_mapping(
+                connection_id, mapping_id, schema_config
             ):
                 contents = script_node["script"]
                 contents = contents.encode("ascii")
                 contents = base64.b64decode(contents)
                 contents = contents.decode("ascii")
                 with open(
-                        "connection_scripts/" + script_id + ".py",
-                        encoding="utf-8",
-                        mode="a",
+                    "backend/connection_scripts/" + script_id + ".py",
+                    encoding="utf-8",
+                    mode="a",
                 ) as file:
                     file.truncate(0)
                     file.write(contents)
@@ -229,21 +224,19 @@ def update_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
                 )
 
 
-@connection_script.route(
+@connection_low_level_script.route(
     "/api/connection/script/<connection_id>/<mapping_id>/<script_id>",
     methods=["DELETE"],
 )
 def delete_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
-    """ Function to delete an existing script, both the script file and the configuration part
+    """Function to delete an existing script, both the script file and the configuration part
 
     :param connection_id: unique identifier of the connection between applications
     :param mapping_id: unique identifier of the connection between API endpoints
     :param script_id: unique identifier of a script element
     :return: a Flask response if deletion was successful
     """
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     if "schemaMapping" in schema_config:
         schema_index = next(
             (
@@ -255,12 +248,12 @@ def delete_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
         )
         if schema_index is not None:
             schema_config["schemaMapping"].pop(schema_index)
-            success = ConnectionLowLevelFlow.update_endpoint_mapping(
+            success = LowLevelTable.update_endpoint_mapping(
                 connection_id, mapping_id, schema_config
             )
             if success:
                 try:
-                    os.remove("connection_scripts/" + script_id + ".py")
+                    os.remove("backend/connection_scripts/" + script_id + ".py")
                     return (
                         jsonify({"success": True}),
                         200,
@@ -295,8 +288,10 @@ def delete_script(connection_id: str, mapping_id: str, script_id: str) -> tuple:
     )
 
 
-def generate_script_function_arguments(connection_id: str, mapping_id: str, script_id: str) -> str:
-    """ Function to generate the arguments for the generated skeleton code
+def generate_script_function_arguments(
+    connection_id: str, mapping_id: str, script_id: str
+) -> str:
+    """Function to generate the arguments for the generated skeleton code
 
     This function uses the application names or in the case of a connection to a variable, the name of that particular
     variable, to generate descriptive names for the arguments.
@@ -306,11 +301,9 @@ def generate_script_function_arguments(connection_id: str, mapping_id: str, scri
     :param script_id: unique identifier of a script element
     :return: a string representing the arguments
     """
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     script_config = get_script(connection_id, mapping_id, script_id, internal=True)
-    location = MappingGenerator.find_schema_item(
+    location = find_schema_item(
         connection_id, "source", schema_config, script_config["source"]
     )
     main_argument_name = ""
@@ -334,8 +327,10 @@ def generate_script_function_arguments(connection_id: str, mapping_id: str, scri
     return main_argument_name + ", **variables"
 
 
-def generate_script_function_return(connection_id: str, mapping_id: str, script_id: str) -> str:
-    """ Function to generate the function return name
+def generate_script_function_return(
+    connection_id: str, mapping_id: str, script_id: str
+) -> str:
+    """Function to generate the function return name
 
     This name depends on the type of connection, if an application that name is used otherwise if connected
     to a variable its name is used.
@@ -345,11 +340,9 @@ def generate_script_function_return(connection_id: str, mapping_id: str, script_
     :param script_id: unique identifier of a script element
     :return: the name of the return object as a string
     """
-    schema_config = ConnectionLowLevelFlow.get_endpoint_mapping(
-        connection_id, mapping_id
-    )
+    schema_config = LowLevelTable.get_endpoint_mapping(connection_id, mapping_id)
     script_config = get_script(connection_id, mapping_id, script_id, internal=True)
-    location = MappingGenerator.find_schema_item(
+    location = find_schema_item(
         connection_id, "target", schema_config, script_config["target"]
     )
     main_return_name = ""
@@ -371,25 +364,3 @@ def generate_script_function_return(connection_id: str, mapping_id: str, script_
         )
         main_return_name = variable["name"]
     return main_return_name
-
-
-def search_in_scripts(endpoint_mapping: dict) -> bool:
-    """ Find a script type of connection in an API endpoint connection
-
-    :param endpoint_mapping:
-    :return: boolean if the API connection has a script and is therefore of type script
-    """
-    if "schemaMapping" in endpoint_mapping and endpoint_mapping["schemaMapping"]:
-        return (
-                next(
-                    (
-                        index
-                        for (index, value) in enumerate(endpoint_mapping["schemaMapping"])
-                        if value["type"] == "script"
-                    ),
-                    None,
-                )
-                is not None
-        )
-    else:
-        return False

@@ -1,0 +1,12 @@
+from flask import Blueprint
+
+from backend.connection.low_level.ConnectionScript import connection_low_level_script
+from backend.connection.low_level.StateHandler import connection_low_level_state
+from backend.connection.low_level.flow.DataHandler import connection_low_level_flow_data_handler
+from backend.connection.low_level.table.DataHandler import connection_low_level_table_data_handler
+
+connection_low_level = Blueprint("ConnectionLowLevel", __name__)
+connection_low_level.register_blueprint(connection_low_level_script)
+connection_low_level.register_blueprint(connection_low_level_state)
+connection_low_level.register_blueprint(connection_low_level_flow_data_handler)
+connection_low_level.register_blueprint(connection_low_level_table_data_handler)

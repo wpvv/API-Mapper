@@ -1,16 +1,11 @@
-import pymongo
 from bson import ObjectId
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request, Blueprint
 
-import ApplicationConfig
+from backend import db
+from backend.application import ApplicationConfig
 
-connection_config = Blueprint("ConnectionConfig", __name__, template_folder="templates")
-
-mongo_client = pymongo.MongoClient("mongodb://database:27017/")
-
-db = mongo_client["APIMapping"]
 collection = db["connections"]
-
+connection_config = Blueprint("ConnectionConfig", __name__)
 
 def set_state_helper(connection_id: ObjectId, state: str) -> bool:
     """
@@ -24,7 +19,7 @@ def set_state_helper(connection_id: ObjectId, state: str) -> bool:
 
 
 def set_state(connection_id: ObjectId) -> bool:
-    """ Function to determine the overall state of the connection between applications
+    """Function to determine the overall state of the connection between applications
 
     A connection's state can be complete or not. If not the state will represent what is incomplete or missing
 
@@ -141,7 +136,7 @@ def get_complete_connection_configs() -> tuple:
 def get_connection_config(
     connection_id: str, flow: bool = True, internal: bool = False
 ) -> tuple | dict:
-    """ Function to get the entire saved configuration of the connection between applications
+    """Function to get the entire saved configuration of the connection between applications
 
     :param connection_id: a unique identifier of a connection between applications
     :param flow: boolean to add application names to the configuration
@@ -169,7 +164,7 @@ def get_connection_config(
     "/api/connection/generate/<application_id1>/<application_id2>", methods=["GET"]
 )
 def generate_connection_id(application_id1: str, application_id2: str) -> tuple:
-    """ Function to generate and save an initial connection config for a pair of applications
+    """Function to generate and save an initial connection config for a pair of applications
 
     :param application_id1: unique identifier of an application
     :param application_id2: unique identifier of an application
@@ -238,7 +233,7 @@ def update_connection_config(
 
 @connection_config.route("/api/connection/<connection_id>", methods=["DELETE"])
 def delete_connection_config(connection_id: str) -> tuple:
-    """ Function to delete a connection between applications
+    """Function to delete a connection between applications
 
     :param connection_id: a unique identifier for the connection between applications
     :return: a Flask response if the deletion was successful
@@ -269,7 +264,7 @@ def delete_connection_config(connection_id: str) -> tuple:
 
 
 def delete_connections_with_application(application_id: str) -> None:
-    """ Function to delete all connections between applications where a certain application id is part of
+    """Function to delete all connections between applications where a certain application id is part of
 
     :param application_id: unique identifier of an application
     """
