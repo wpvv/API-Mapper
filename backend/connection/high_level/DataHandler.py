@@ -7,6 +7,7 @@ from backend.connection.low_level import StateHandler
 
 connection_high_level_data_handler = Blueprint("ConnectionHighLevelDataHandler", __name__)
 
+
 def connection_exists(connection_config: dict, endpoint_config: dict) -> bool:
     """Function to check if a connection between API endpoints already exists
 
@@ -20,9 +21,9 @@ def connection_exists(connection_config: dict, endpoint_config: dict) -> bool:
                 index
                 for (index, value) in enumerate(connection_config["endpointMapping"])
                 if value["source"]["endpointId"]
-                == endpoint_config["source"]["endpointId"]
-                and value["target"]["endpointId"]
-                == endpoint_config["target"]["endpointId"]
+                   == endpoint_config["source"]["endpointId"]
+                   and value["target"]["endpointId"]
+                   == endpoint_config["target"]["endpointId"]
             ),
             None,
         )
@@ -35,10 +36,10 @@ def connection_exists(connection_config: dict, endpoint_config: dict) -> bool:
     "/api/connection/flow/add/edge/<connection_id>", methods=["POST"]
 )
 def add_endpoint_connection(
-    connection_id: str,
-    endpoint_config: dict = None,
-    recommendation: bool = False,
-    internal: bool = False,
+        connection_id: str,
+        endpoint_config: dict = None,
+        recommendation: bool = False,
+        internal: bool = False,
 ) -> bool | tuple:
     """Function to add an API connection
 
@@ -147,7 +148,7 @@ def delete_endpoint_connection(connection_id: str, edge_id: str) -> tuple:
     "/api/connection/get/edges/<connection_id>", methods=["GET"]
 )
 def get_endpoint_connections(
-    connection_id: str, internal: bool = False
+        connection_id: str, internal: bool = False
 ) -> list | None | tuple:
     """Function to get a list of connections between API endpoints
 
@@ -241,7 +242,7 @@ def save_final_connection(connection_id: str) -> tuple:
     methods=["GET"],
 )
 def get_recommendations(connection_id: str) -> tuple:
-    """Function to make the High level interface interact with the recommendations module.
+    """Function to make the High level interface interact with the "recommendations" module.
 
     This function is called when the user presses the "Get recommendations" button in the high level interface.
     It will use the recommendations module to generate recommended connections APIs. Generated recommendations are then
@@ -253,37 +254,44 @@ def get_recommendations(connection_id: str) -> tuple:
     """
     config = ConnectionConfig.get_connection_config(connection_id, internal=True)
     predictions = ConnectionRecommendations.make_prediction(config["applicationIds"])
-    for connection in predictions:
-        endpoint_config = {}
-        for application in ["application1", "application2"]:
-            endpoint_config[application] = {
-                "applicationId": connection[application + "_id"],
-                "endpointId": connection[application + "_endpoint_id"],
-                "label": connection[application + "_original_path"],
-                "operation": connection[application + "_operation"],
-                "path": connection[application + "_original_path"],
-                "serverOverride": connection[application + "_server_override"],
-            }
-        if connection["application1_operation"] == "get":
-            endpoint_config["source"] = endpoint_config.pop("application1")
-            endpoint_config["target"] = endpoint_config.pop("application2")
+    if predictions:
+        for connection in predictions:
+            endpoint_config = {}
+            for application in ["application1", "application2"]:
+                endpoint_config[application] = {
+                    "applicationId": connection[application + "_id"],
+                    "endpointId": connection[application + "_endpoint_id"],
+                    "label": connection[application + "_original_path"],
+                    "operation": connection[application + "_operation"],
+                    "path": connection[application + "_original_path"],
+                    "serverOverride": connection[application + "_server_override"],
+                }
+            if connection["application1_operation"] == "get":
+                endpoint_config["source"] = endpoint_config.pop("application1")
+                endpoint_config["target"] = endpoint_config.pop("application2")
 
-        else:
-            endpoint_config["source"] = endpoint_config.pop("application2")
-            endpoint_config["target"] = endpoint_config.pop("application1")
-        add_endpoint_connection(
-            connection_id,
-            endpoint_config=endpoint_config,
-            recommendation=True,
-            internal=True,
+            else:
+                endpoint_config["source"] = endpoint_config.pop("application2")
+                endpoint_config["target"] = endpoint_config.pop("application1")
+            add_endpoint_connection(
+                connection_id,
+                endpoint_config=endpoint_config,
+                recommendation=True,
+                internal=True,
+            )
+        print("Generated " + str(len(predictions)) + " recommendations")
+        nodes, edges = Flow.get_connection_config_flow(connection_id, internal=True)
+        return (
+            jsonify({"success": True, "data": {"nodes": nodes, "edges": edges}}),
+            200,
+            {"ContentType": "application/json"},
         )
-    print("Generated " + str(len(predictions)) + " recommendations")
-    nodes, edges = Flow.get_connection_config_flow(connection_id, internal=True)
-    return (
-        jsonify({"success": True, "data": {"nodes": nodes, "edges": edges}}),
-        200,
-        {"ContentType": "application/json"},
-    )
+    else:
+        return (
+            jsonify({"success": False}),
+            201,
+            {"ContentType": "application/json"},
+        )
 
 
 def get_incomplete_APIs(connection_id: str) -> list:

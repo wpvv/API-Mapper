@@ -1,6 +1,7 @@
+import copy
 import itertools
 import json
-import os
+import random
 import re
 
 import joblib
@@ -9,12 +10,14 @@ import numpy
 import pandas as pd
 import seaborn as sns
 import tensorflow
+import xgboost
 from imblearn.over_sampling import RandomOverSampler
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 from pandarallel import pandarallel
-from sentence_transformers import SentenceTransformer
+from scipy import stats
+from sentence_transformers import SentenceTransformer, util
 from sklearn import model_selection, feature_selection, linear_model, ensemble, metrics
 
 from backend.application import ApplicationConfig
@@ -93,9 +96,9 @@ def get_response_schema(spec: dict) -> dict:
             if "content" in spec["responses"]["200"]:
                 for key, value in spec["responses"]["200"]["content"].items():
                     if (
-                        "/" in key
-                        and key.startswith("application/json")
-                        and "schema" in value
+                            "/" in key
+                            and key.startswith("application/json")
+                            and "schema" in value
                     ):
                         return value["schema"]
     return {}
@@ -113,9 +116,9 @@ def get_request_schema(spec: dict) -> dict:
         if "content" in spec["requestBody"]:
             for key, value in spec["requestBody"]["content"].items():
                 if (
-                    "/" in key
-                    and key.startswith("application/json")
-                    and "schema" in value
+                        "/" in key
+                        and key.startswith("application/json")
+                        and "schema" in value
                 ):
                     return value["schema"]
     return {}
@@ -170,13 +173,17 @@ def set_operation_compatibility(df_row: dict) -> dict:
     :return: modified row of teh dataframe, modified that it contains a name and an int representing compatibility
     """
     df_row["name"] = (
-        df_row["application1_operation"]
-        + ":"
-        + df_row["application1_path"]
-        + " - "
-        + df_row["application2_operation"]
-        + ":"
-        + df_row["application2_path"]
+            df_row["application1_name"]
+            + ":"
+            + df_row["application1_operation"]
+            + ":"
+            + df_row["application1_path"]
+            + " - "
+            + df_row["application2_name"]
+            + ":"
+            + df_row["application2_operation"]
+            + ":"
+            + df_row["application2_path"]
     )
     df_row["supported_connection"] = get_operation_compatibility(
         (df_row["application1_operation"], df_row["application2_operation"])
@@ -185,7 +192,7 @@ def set_operation_compatibility(df_row: dict) -> dict:
 
 
 def calculate_similarity_scores(
-    model: object, df_row: dict, training: bool = False
+        model: object, df_row: dict, training: bool = False
 ) -> dict:
     """Function to generate the similarity features
 
@@ -210,10 +217,8 @@ def calculate_similarity_scores(
         a = tensorflow.make_ndarray(
             tensorflow.make_tensor_proto(message_embeddings)
         )  # storing the vector in the form of numpy array
-        cos_sim = numpy.dot(a[0], a[1]) / (
-            numpy.linalg.norm(a[0]) * numpy.linalg.norm(a[1])
-        )  # Finding the cosine between the two vectors
-        df_row["similarity_score_" + similarity_type] = cos_sim
+        cos_sim = util.cos_sim(a[0], a[1])
+        df_row["similarity_score_" + similarity_type] = float(cos_sim[0]) + 1
 
     return df_row
 
@@ -257,7 +262,8 @@ def create_data_set(application_ids=None, training=False):
         ]
     else:
         return
-    model = SentenceTransformer("bert-base-nli-mean-tokens")
+    # model = SentenceTransformer("bert-base-nli-mean-tokens")
+    model = SentenceTransformer("all-MiniLM-L6-v2")
     endpoint_id = None
     if training:
         pandarallel.initialize(progress_bar=True)
@@ -311,7 +317,7 @@ def create_data_set(application_ids=None, training=False):
     if not training:
         data_set = data_set.loc[
             data_set["application1_id"] != data_set["application2_id"]
-        ]
+            ]
     data_set = data_set.apply(
         lambda df_row: set_operation_compatibility(df_row), axis=1
     )
@@ -323,16 +329,20 @@ def create_data_set(application_ids=None, training=False):
     data_set = data_set.parallel_apply(
         lambda df_row: calculate_json_glue_scores(df_row), axis=1
     )
+    data_set["similarity_score_description"] = data_set["similarity_score_description"] / data_set[
+        "similarity_score_description"].max()
+    data_set["similarity_score_path"] = data_set["similarity_score_path"] / data_set["similarity_score_path"].max()
+
     data_set.drop(["supported_connection", "label"], axis=1, inplace=True)
     data_set = data_set.set_index("name")
     if training:
-        data_set.to_csv("backend/data/gradient_boosting/chat.csv")
-        print("Data set written to data/gradient_boosting/chat.csv")
+        data_set.to_csv("backend/data/chat.csv")
+        print("Data set written to data/chat.csv")
     return data_set
 
 
 def read_training_data_set(
-    make_graphs: bool = False,
+        make_graphs: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Function to read previously generated and manually labelled dataset.
 
@@ -345,11 +355,12 @@ def read_training_data_set(
     :param make_graphs: boolean to generate graphs depicting the feature performances
     :return: a tuple containing the entire dataset, the training dataset and the test dataset
     """
-    data_set = pd.read_csv("chat_labeled.csv")
+    # data_set = pd.read_csv("chat_labeled.csv")
+    data_set = pd.read_csv("backend/data/data_set.csv")
     data_set_copy = data_set
     data_set.drop(
         [
-            "Unnamed: 0",
+            # "Unnamed: 0",
             "application1_name",
             "application1_path",
             "application2_name",
@@ -369,15 +380,16 @@ def read_training_data_set(
     data_set = data_set.set_index("name")
     data_set_copy = data_set_copy.set_index("name")
     train_data, test_data = model_selection.train_test_split(
-        data_set, test_size=0.3, random_state=1
+        data_set, test_size=0.2, random_state=1
     )
     sm = RandomOverSampler(random_state=1)
     # Fit the model to generate the data.
     x_train, y_train = sm.fit_resample(
         train_data.drop("label", axis=1), train_data["label"]
     )
-    train_data = pd.concat([pd.DataFrame(y_train), pd.DataFrame(x_train)], axis=1)
-    train_data.columns = data_set.columns
+    train_data = pd.concat([pd.DataFrame(y_train, columns=["label"]),
+                            pd.DataFrame(x_train, columns=train_data.drop("label", axis=1).columns)], axis=1)
+    # train_data.columns = data_set.columns
     print(train_data.head)
     print(
         "x_train shape:",
@@ -392,20 +404,26 @@ def read_training_data_set(
         numpy.mean(test_data["label"]).round(2),
     )
     if make_graphs:
-        create_feature_graphs(data_set, train_data)
+        create_feature_graphs(data_set, train_data, test_data)
     return data_set_copy, train_data, test_data
 
 
-def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> None:
+def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame, test_data: pd.DataFrame) -> None:
     """Function to generate graphs about the performance of the features.
 
     Only for writing purposes
 
     :param data_set: entire dataset
     :param train_data: part of the dataset for training purposes
+    :param test_data: part of the dataset for testing purposes
     """
     x_train = train_data.drop("label", axis=1).values
     y_train = train_data["label"].values
+
+    x_test = test_data.drop("label", axis=1).values
+    y_test = test_data["label"].values
+
+    feature_names = train_data.drop("label", axis=1).columns
 
     matrix = data_set.corr().round(2)
     sns.heatmap(matrix, annot=True, cmap="YlGnBu", cbar=True, linewidths=0.5)
@@ -414,9 +432,31 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
     plt.savefig("backend/data/correlation.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
-    feature_names = train_data.drop("label", axis=1).columns
+    f1_list = []
+    feature_index = range(1, len(train_data.columns))
+    for k in feature_index:
+        bk = feature_selection.SelectKBest(feature_selection.f_classif, k=k)
+        bk.fit(x_train, y_train)
+        x_train_trans = bk.transform(x_train)
+        x_test_trans = bk.transform(x_test)
+        model = ensemble.RandomForestClassifier(
+            random_state=1
+        )
+        model.fit(x_train_trans, y_train)
+        y_predicted = model.predict(x_test_trans)
+        f1 = metrics.f1_score(y_test, y_predicted)
+        f1_list.append(f1)
+
+    fig, axe = plt.subplots(dpi=300)
+    axe.plot(feature_index, f1_list)
+    axe.set_xlabel("Best k features")
+    axe.set_ylabel("F1-score")
+    plt.title("F1 Score per ANOVA k value")
+    fig.savefig("backend/data/anova_f1.png")
+    plt.clf()
+
     selector = feature_selection.SelectKBest(
-        score_func=feature_selection.f_classif, k=4
+        score_func=feature_selection.f_classif, k=3
     ).fit(x_train, y_train)
     anova_selected_features = feature_names[selector.get_support()]
 
@@ -424,7 +464,7 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
         estimator=linear_model.LogisticRegression(
             C=1, penalty="l1", solver="liblinear"
         ),
-        max_features=4,
+        max_features=3,
     ).fit(x_train, y_train)
     lasso_selected_features = feature_names[selector.get_support()]
 
@@ -456,9 +496,8 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
     plt.savefig("backend/data/lasso_reg.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
-    feature_names = train_data.drop("label", axis=1).columns.tolist()
     model = ensemble.RandomForestClassifier(
-        n_estimators=100, criterion="entropy", random_state=0
+        random_state=1
     )
     model.fit(x_train, y_train)
     feature_importance = model.feature_importances_
@@ -509,15 +548,16 @@ def create_feature_graphs(data_set: pd.DataFrame, train_data: pd.DataFrame) -> N
 
 
 def create_model_graphs(
-    model: object,
-    x_train: pd.DataFrame,
-    y_train: pd.DataFrame,
-    x_test: pd.DataFrame,
-    y_test: pd.DataFrame,
-    predicted: list,
-    predicted_prob: list,
-    recall: list,
-    precision: list,
+        model: object,
+        x_train: pd.DataFrame,
+        y_train: pd.DataFrame,
+        x_test: pd.DataFrame,
+        y_test: pd.DataFrame,
+        predicted: list,
+        predicted_prob: list,
+        recall: list,
+        precision: list,
+        model_type,
 ) -> None:
     """Function to generate graphs about the performance of the generated model
 
@@ -532,6 +572,8 @@ def create_model_graphs(
     :param predicted_prob: list of predictions between 0, 1
     :param recall: recall score
     :param precision: precision score
+    :param model_type: String that describes the type of machine learning algorithm, options: "xgboost", "gbc", "rfc"
+    xgboost -> Extreme Gradient Boost, gbc -> Gradient Boosting Classifier, rfc -> Random Forest Classifier
     """
     classes = [0, 1]
     fig, ax = plt.subplots()
@@ -539,7 +581,7 @@ def create_model_graphs(
     sns.heatmap(cm, annot=True, fmt="d", cmap=plt.cm.Blues, cbar=False)
     ax.set(xlabel="Predicted", ylabel="True", title="Confusion matrix")
     ax.set_yticklabels(labels=classes, rotation=0)
-    plt.savefig("backend/data/confusion.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/" + model_type + "/confusion.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     fig, ax = plt.subplots(nrows=1, ncols=2)  # plot ROC curve
@@ -626,7 +668,7 @@ def create_model_graphs(
                 va="bottom",
             )
             threshold.append(t)
-    plt.savefig("backend/data/pr_curves.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/" + model_type + "/pr_curves.png", bbox_inches="tight", dpi=100)
     plt.clf()
 
     dic_scores = {
@@ -647,11 +689,34 @@ def create_model_graphs(
     dtf_scores = pd.DataFrame(dic_scores)
     dtf_scores = dtf_scores.set_index("threshold")
     dtf_scores.plot(title="Threshold Selection", ylabel="Scores")
-    plt.savefig("backend/data/threshold.png", bbox_inches="tight", dpi=100)
+    plt.savefig("backend/data/" + model_type + "/threshold.png", bbox_inches="tight", dpi=100)
+    plt.clf()
+
+    f1_list = []
+    feature_index = range(1, x_train.shape[1]+1)
+    for k in feature_index:
+        bk = feature_selection.SelectKBest(feature_selection.f_classif, k=k)
+        bk.fit(x_train, y_train)
+        x_train_trans = bk.transform(x_train)
+        x_test_trans = bk.transform(x_test)
+        # model = ensemble.RandomForestClassifier(
+        #     random_state=1
+        # )
+        model.fit(x_train_trans, y_train)
+        y_predicted = model.predict(x_test_trans)
+        f1 = metrics.f1_score(y_test, y_predicted)
+        f1_list.append(f1)
+
+    fig, axe = plt.subplots(dpi=300)
+    axe.plot(feature_index, f1_list)
+    axe.set_xlabel("Best k features")
+    axe.set_ylabel("F1-score")
+    plt.title("F1 Score per ANOVA k value")
+    fig.savefig("backend/data/" + model_type + "/anova_f1.png")
     plt.clf()
 
 
-def train_model(x_train: pd.DataFrame, y_train: pd.DataFrame) -> object:
+def train_model(x_train: pd.DataFrame, y_train: pd.DataFrame, model_type: str) -> object:
     """Function to generate the best possible model in a fairly short time
 
     This function uses randomized search to find the best model, according to its F1 score, within the set of parameters
@@ -659,27 +724,57 @@ def train_model(x_train: pd.DataFrame, y_train: pd.DataFrame) -> object:
 
     :param x_train: features of the 70% of the dataset for training purposes
     :param y_train: label of the 70% of the dataset for training purposes
+    :param model_type: String that describes the type of machine learning algorithm, options: "xgboost", "gbc", "rfc"
+    xgboost -> Extreme Gradient Boost, gbc -> Gradient Boosting Classifier, rfc -> Random Forest Classifier
     :return: found model that performs the best
     """
-    model = ensemble.GradientBoostingClassifier()
-    parameters = {
-        "learning_rate": [0.3, 0.2, 0.15, 0.1, 0.05, 0.01, 0.005, 0.001],
-        "n_estimators": [100, 250, 500, 750, 1000, 2000, 3000, 4000, 5000],
-        "max_depth": [2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 50],
-        "min_samples_split": [2, 4, 6, 8, 10, 20, 40, 60, 100],
-        "min_samples_leaf": [1, 3, 5, 7, 9],
-        "max_features": [1, 2, 3, 4],
-        "subsample": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
-    }
+    if model_type == "gbc":
+        model = ensemble.GradientBoostingClassifier()
+        parameters = {
+            "learning_rate": [0.3, 0.2, 0.15, 0.1, 0.05, 0.01, 0.005, 0.001],
+            "n_estimators": [100, 250, 500, 750, 1000, 2000, 3000, 4000, 5000],
+            "max_depth": [2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 50],
+            "min_samples_split": [2, 4, 6, 8, 10, 20, 40, 60, 100],
+            "min_samples_leaf": [1, 3, 5, 7, 9],
+            "max_features": [1, 2, 3, 4],
+            "subsample": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+        }
+    elif model_type == "xgboost":
+        model = xgboost.XGBClassifier(objective="binary:logistic", random_state=1)
+        parameters = {
+            # "colsample_bytree": stats.uniform(0.7, 0.3),
+            "colsample_bytree": [1, 0.99, 0.98, 0.9, 0.8, 0.7, 0.6, 0.5],
+            "learning_rate": [0.3, 0.2, 0.15, 0.1, 0.05, 0.01, 0.005, 0.001],
+            "n_estimators": [100, 250, 500, 750, 1000, 2000, 3000, 4000, 5000],
+            "max_depth": [2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 50],
+            "gamma": [1, 0.1, 0.01, 0.001, 0.0001],
+            "subsample": [0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+        }
+    elif model_type == "rfc":
+        model = ensemble.RandomForestClassifier(random_state=1)
+        parameters = {
+            "n_estimators": [10, 20, 30, 40, 50, 60, 70, 80],
+            "max_features": [1, 2, 3, 4],
+            "max_depth": [2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 50],
+            "min_samples_split": [2, 4, 6, 8, 10, 20, 40, 60, 100],
+            "min_samples_leaf": [1, 3, 5, 7, 9],
+            "bootstrap": [True, False],
+            "criterion": ["gini", "entropy"],
+            # "oob_score": [True, False],
+        }
+    else:
+        print("Unknown machine learning algorithm: " + model_type)
+        return
 
     random_search = model_selection.RandomizedSearchCV(
         model,
         n_jobs=-2,
-        verbose=10,
+        # verbose=10,
         cv=5,
         param_distributions=parameters,
-        n_iter=1000,
+        n_iter=100,
         scoring="f1",
+        random_state=1
     ).fit(x_train, y_train)
     print("Best Model parameters:", random_search.best_params_)
     print("Best Model mean accuracy:", random_search.best_score_)
@@ -687,12 +782,13 @@ def train_model(x_train: pd.DataFrame, y_train: pd.DataFrame) -> object:
 
 
 def create_model(
-    data_set: pd.DataFrame,
-    train_data: pd.DataFrame,
-    test_data: pd.DataFrame,
-    training: bool = False,
-    make_graphs: bool = False,
-    save_model: bool = False,
+        data_set: pd.DataFrame,
+        train_data: pd.DataFrame,
+        test_data: pd.DataFrame,
+        training: bool = False,
+        make_graphs: bool = False,
+        save_model: bool = False,
+        model_type: str = "xgboost"
 ) -> object:
     """Function to use the dataset and generate a model. It has been set to known good gradient boosting algorithm.
 
@@ -707,6 +803,8 @@ def create_model(
     :param training: boolean to indicate whether to print progress updates
     :param make_graphs: boolean to create graphs for thesis paper
     :param save_model: boolean to indicate to save the generated model for later use
+    :param model_type: String that describes the type of machine learning algorithm, options: "xgboost", "gbc", "rfc"
+    xgboost -> Extreme Gradient Boost, gbc -> Gradient Boosting Classifier, rfc -> Random Forest Classifier
     :return: generated gradient boosting classifier model
     """
     x_train = train_data.drop("label", axis=1).values
@@ -714,27 +812,57 @@ def create_model(
     x_test = test_data.drop("label", axis=1).values
     y_test = test_data["label"].values
     if training:
-        model = train_model(x_train, y_train)
+        model = train_model(x_train, y_train, model_type)
+        if not model:
+            return
     else:
-        model = ensemble.GradientBoostingClassifier(
-            subsample=0.9,
-            n_estimators=3000,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            max_features=4,
-            max_depth=10,
-            learning_rate=0.3,
-            random_state=1,
-        )
+        if model_type == "gbc":
+            model = ensemble.GradientBoostingClassifier(
+                subsample=0.85,
+                n_estimators=4000,
+                min_samples_split=4,
+                min_samples_leaf=7,
+                max_features=4,
+                max_depth=30,
+                learning_rate=0.30,
+                random_state=1,
+            )
+        elif model_type == "xgboost":
+            model = xgboost.XGBClassifier(objective="binary:logistic",
+                                          colsample_bytree=0.9718865149600397,
+                                          gamma=0.006175839588503318,
+                                          learning_rate=0.22424804233423035,
+                                          max_depth=5,
+                                          n_estimators=10447,
+                                          subsample=0.7160330865349168,
+                                          random_state=1
+                                          )
+        elif model_type == "rfc":
+            model = ensemble.RandomForestClassifier(
+                n_estimators=50,
+                min_samples_split=2,
+                min_samples_leaf=1,
+                max_features=1,
+                max_depth=30,
+                criterion="gini",
+                bootstrap=False,
+                random_state=1
+            )
+        else:
+            print("Unknown machine learning algorithm: " + model_type)
+            return
     model.fit(x_train, y_train)
+
     predicted_prob = model.predict_proba(x_test)[:, 1]
-    predicted = (model.predict_proba(x_test)[:, 1] >= 0.9).astype(bool)
-    data_set["label_predicted"] = model.predict(data_set.drop("label", axis=1).values)
-    data_set.to_csv("backend/data/chat_labeled_predicted.csv")
-    print("predicted data written to data/chat_labeled_predicted.csv")
+    predicted = (model.predict_proba(x_test)[:, 1] >= 0.5).astype(bool)
+    # data_set["label_predicted"] = model.predict(data_set.drop("label", axis=1).values)
+    # data_set.to_csv("backend/data/" + model_type + "/chat_labeled_predicted.csv")
+    # print("predicted data written to data/" + model_type + "/chat_labeled_predicted.csv")
     recall = metrics.recall_score(y_test, predicted)
     precision = metrics.precision_score(y_test, predicted)
     f1_score = metrics.f1_score(y_test, predicted)
+    print("Model type: " + model_type)
+
     print("Recall:", round(recall, 2))
     print("Precision:", round(precision, 2))
     print("F1 Score:", round(f1_score, 2))
@@ -755,9 +883,10 @@ def create_model(
             predicted_prob,
             recall,
             precision,
+            model_type
         )
     if save_model:
-        files = joblib.dump(model, "backend/data/boostinggradient.joblib")
+        files = joblib.dump(model, "backend/data/" + model_type + "/model.joblib")
         print("Model is written to:" + str(files))
     return model
 
@@ -770,10 +899,10 @@ def make_prediction(application_ids: list) -> dict:
     :param application_ids: list of application ids
     :return: a dict containing the connections that recommended
     """
-    print(os.listdir())
     data = create_data_set(application_ids, training=False)
+    model_type = "xgboost"
     try:
-        model = joblib.load("backend/data/boostinggradient.joblib")
+        model = joblib.load("backend/data/" + model_type + "/model.joblib")
     except FileNotFoundError:
         print("model not found")
         data_set, train_data, test_data = read_training_data_set(make_graphs=True)
@@ -816,3 +945,42 @@ def make_prediction(application_ids: list) -> dict:
     )[:, 1]
     data = data.loc[data["label_predicted"] >= 0.9]
     return data.to_dict("records")
+
+# def make_prediction(application_ids):
+#     data = create_data_set(training=True)
+#     data = pd.read_csv("backend/data/chat.csv")
+#     data.set_index("name", inplace=True)
+#     original = pd.read_csv("backend/chat_labeled.csv")
+#     original.drop(
+#         [
+#             "Unnamed: 0",
+#             "application1_name",
+#             "application2_name",
+#             "application1_path",
+#             "application2_path",
+#             "application1_schema",
+#             "application2_schema",
+#             "application1_description",
+#             "application2_description",
+#             "application1_operation",
+#             "application2_operation",
+#             "application1_original_description",
+#             "application2_original_description",
+#             "similarity_score_path",
+#             "similarity_score_description",
+#             "schema_edit",
+#             "schema_lexical"
+#         ],
+#         axis=1,
+#         inplace=True,
+#     )
+#     original.drop_duplicates(subset=["name"], inplace=True)
+#     original.set_index("name", inplace=True)
+#     original.to_csv("backend/data/labels.csv")
+#     result = data.join(original, how="inner")
+#     result.to_csv("backend/data/results.csv")
+#     data_set, train_data, test_data = read_training_data_set(make_graphs=True)
+#     for model_type in ["gbc", "xgboost", "rfc"]:
+#         model = create_model(
+#             data_set, train_data, test_data, make_graphs=True, training=True, model_type=model_type
+#         )
