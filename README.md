@@ -49,8 +49,8 @@ When this is running without errors you can reach the frontend on:
 `http://localhost:3000`
 
 ## To Do
-* Finish documentation and type hinting
-* Try neural network as the provider for the ML model
+* ~~Finish documentation and type hinting~~
+* ~~Try neural network as the provider for the ML model~~
 * Add publication of thesis, when available, for added context
 * Writing tests
 
