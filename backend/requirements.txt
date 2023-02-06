@@ -60,7 +60,7 @@ matplotlib==3.6.1
 networkx==2.8.7
 nltk==3.7
 numpy==1.23.2
-oauthlib==3.2.1
+oauthlib==3.2.2
 openapi-schema-validator==0.2.3
 openapi-spec-validator==0.4.0
 opt-einsum==3.3.0
